@@ -9,7 +9,7 @@ This is an official release of the paper **Aligning Bag of Regions for Open-Voca
 > [**Aligning Bag of Regions for Open-Vocabulary Object Detection**](https://arxiv.org/abs/2302.13996),            
 > Size Wu, Wenwei Zhang, Sheng Jin, Wentao Liu, Chen Change Loy           
 > In: Proc. IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 2023           
-> [[arXiv](https://arxiv.org/abs/2302.13996)][[project page](https://www.mmlab-ntu.com/project/baron/index.html)][[Bibetex](https://github.com/wusize/ovdet#citation)]
+> [[arXiv](https://arxiv.org/abs/2302.13996)][[project page(TBD)](https://www.mmlab-ntu.com/project/baron/index.html)][[Bibetex](https://github.com/wusize/ovdet#citation)]
 
 ## Results
 
