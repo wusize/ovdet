@@ -9,7 +9,7 @@ This is an official release of the paper **Aligning Bag of Regions for Open-Voca
 > [**Aligning Bag of Regions for Open-Vocabulary Object Detection**](https://arxiv.org/abs/2302.13996),            
 > Size Wu, Wenwei Zhang, Sheng Jin, Wentao Liu, Chen Change Loy           
 > In: Proc. IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 2023           
-> [[arXiv](https://arxiv.org/abs/2302.13996)][[project page(TBD)](https://www.mmlab-ntu.com/project/baron/index.html)][[Bibetex](https://github.com/wusize/ovdet#citation)]
+> [[arXiv](https://arxiv.org/abs/2302.13996)][[project page(TBD)](https://www.mmlab-ntu.com/)][[Bibetex](https://github.com/wusize/ovdet#citation)]
 
 ## Results
 
@@ -20,9 +20,12 @@ The model checkpoints and logs will be released soon.
 
 | Backbone | Method | Supervision | Novel AP50 | Config | Download |
 | :---: | :---: | :---: | :---: | :---: | :---: |
-| R-50-FPN  | BARON| CLIP | 34.0 |[config](configs/baron/) | [model]() &#124;  [log]() |
-| R-50-C4  | BARON| COCO Caption | 33.1 |[config](configs/baron/) | [model]() &#124;  [log]() |
-| R-50-C4  | BARON| COCO Caption + CLIP | 42.7|[config](configs/baron/) | [model]() &#124;  [log]() |
+| R-50-FPN | BARON  | CLIP | 34.0 |[config](configs/baron/) | [model]() &#124;  [log]() |
+| R-50-C4  | BARON  | COCO Caption | 33.1 |[config](configs/baron/) | [model]() &#124;  [log]() |
+| R-50-C4  | BARON *| COCO Caption + CLIP | 42.7|[config](configs/baron/) | [model]() &#124;  [log]() |
+
+Note:
+\* indicates using extra proposals
 
 ### Open Vocabulary LVIS
 
