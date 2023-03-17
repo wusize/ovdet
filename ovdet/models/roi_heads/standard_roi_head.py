@@ -17,7 +17,8 @@ class OVDStandardRoIHead(StandardRoIHead):
             self.clip = MODELS.build(clip_cfg)
         if ovd_cfg is not None:
             for k, v in ovd_cfg.items():
-                self.register_module(k, OVD.build(v))
+                # self.register_module(k, OVD.build(v))   # not supported in pt1.8.1
+                setattr(self, k, OVD.build(v))
 
     def _bbox_forward(self, x, rois):
         # TODO: a more flexible way to decide which feature maps to use
