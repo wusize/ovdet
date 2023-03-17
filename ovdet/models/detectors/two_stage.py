@@ -45,7 +45,8 @@ class OVDTwoStageDetector(TwoStageDetector):
     def loss(self, multi_batch_inputs: Dict[str, Tensor],
              multi_batch_data_samples: Dict[str, SampleList]) -> dict:
         if isinstance(multi_batch_inputs, dict):
-            losses = super().loss(multi_batch_inputs.pop('det'), multi_batch_data_samples.pop('det'))
+            losses = super().loss(multi_batch_inputs.pop('det_batch'),
+                                  multi_batch_data_samples.pop('det_batch'))
             batch_names = multi_batch_inputs.keys()
             for batch_name in batch_names:
                 ovd_name = self.batch2ovd[batch_name]
