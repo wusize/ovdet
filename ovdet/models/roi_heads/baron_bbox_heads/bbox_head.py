@@ -75,7 +75,7 @@ class BaronBBoxHead(BBoxHead):
         if pseudo_words.shape[0] == 0:
             return pseudo_words.new_zeros(0, self.num_classes + 1)
         with autocast():
-            valid_mask = self._drop_word(pseudo_words.half())
+            valid_mask = self._drop_word(pseudo_words)
             pseudo_text, end_token_ids = text_encoder.prepare_pseudo_text_tensor(
                 pseudo_words, valid_mask)  # add start and stop token
             if self.use_attn12_output:

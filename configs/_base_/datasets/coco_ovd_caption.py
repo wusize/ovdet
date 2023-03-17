@@ -34,7 +34,7 @@ ovd_pipeline = [
 det_dataset = dict(
     type='CocoDataset',
     data_root=data_root,
-    ann_file='annotations/instances_train2017_base.json',
+    ann_file='wusize/instances_train2017_base.json',
     data_prefix=dict(img='train2017/'),
     filter_cfg=dict(filter_empty_gt=True, min_size=32),
     pipeline=det_pipeline)
@@ -42,7 +42,7 @@ det_dataset = dict(
 ovd_dataset = dict(
     type='CocoCaptionDataset',
     data_root=data_root,
-    ann_file='annotations/captions_train2017_tags_allcaps.json',
+    ann_file='wusize/captions_train2017_tags_allcaps.json',
     data_prefix=dict(img='train2017/'),
     filter_cfg=dict(filter_empty_gt=False),
     pipeline=ovd_pipeline
