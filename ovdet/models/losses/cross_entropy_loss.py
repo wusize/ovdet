@@ -1,9 +1,11 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+import torch
 import torch.nn.functional as F
 from mmdet.registry import MODELS
 from mmdet.models.losses.utils import weight_reduce_loss
 from mmdet.models import CrossEntropyLoss
 from mmdet.models.losses.cross_entropy_loss import _expand_onehot_labels
+from ovdet.utils import load_class_freq
 
 
 def binary_cross_entropy(pred,
@@ -91,3 +93,7 @@ class CustomCrossEntropyLoss(CrossEntropyLoss):
         elif not self.use_mask:
             del self.cls_criterion
             self.cls_criterion = cross_entropy
+
+        if isinstance(self.class_weight, str):
+            cat_freq = load_class_freq(self.class_weight, min_count=0)
+            self.class_weight = (cat_freq > 0.0).float().tolist() + [1.0]

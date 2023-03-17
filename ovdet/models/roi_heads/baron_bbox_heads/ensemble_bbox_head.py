@@ -28,9 +28,10 @@ class EnsembleBaronConvFCBBoxHead(BaronConvFCBBoxHead):
         self.ensemble_factor = ensemble_factor
         self.transfer_factor = transfer_factor
         assert (ensemble_factor is None) ^ (transfer_factor is None)
-        class_cnt = load_class_freq(class_info, 1.0, min_count=0)  # to mask the novel classes
-        is_base = torch.cat([(class_cnt > 0.0).float(), torch.tensor([1.0])])
-        self.register_buffer('is_base', is_base)
+        if ensemble_factor is not None:
+            class_cnt = load_class_freq(class_info, 1.0, min_count=0)  # to mask the novel classes
+            is_base = torch.cat([(class_cnt > 0.0).float(), torch.tensor([1.0])])
+            self.register_buffer('is_base', is_base)
 
     def vision_to_language(self, x):
         # shared part

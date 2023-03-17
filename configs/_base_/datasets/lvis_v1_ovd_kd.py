@@ -41,7 +41,7 @@ det_dataset = dict(
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file='annotations/lvis_v1_train_norare.json',
+        ann_file='wusize/lvis_v1_train_base.json',
         data_prefix=dict(img=''),
         filter_cfg=dict(filter_empty_gt=True, min_size=32),
         pipeline=det_pipeline)
@@ -53,7 +53,7 @@ ovd_dataset = dict(
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file='annotations/lvis_v1_train_norare.json',
+        ann_file='wusize/lvis_v1_train_base.json',
         data_prefix=dict(img=''),
         filter_cfg=dict(filter_empty_gt=False, min_size=32),
         pipeline=ovd_pipeline)

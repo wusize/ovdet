@@ -1,5 +1,5 @@
 _base_ = 'mmdet::_base_/models/mask-rcnn_r50_fpn.py'
-norm_cfg = dict(type='BN', requires_grad=True)
+norm_cfg = dict(type='SyncBN', requires_grad=True)
 # model settings
 model = dict(
     backbone=dict(

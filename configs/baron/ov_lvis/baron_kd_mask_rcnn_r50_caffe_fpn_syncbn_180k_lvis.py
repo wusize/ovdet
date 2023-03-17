@@ -85,7 +85,7 @@ model = dict(
             pad_size_divisor=32),
     ),
     rpn_head=dict(
-        type='DetachRPNHead',
+        type='CustomRPNHead',
         anchor_generator=dict(
             scale_major=False,      # align with detectron2
         )

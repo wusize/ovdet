@@ -9,16 +9,11 @@ from typing import Dict
 
 @MODELS.register_module()
 class OVDTwoStageDetector(TwoStageDetector):
-    def __init__(self, batch2ovd=None, ovd_preprocessor=None, *args, **kwargs):
+    def __init__(self, batch2ovd=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.batch2ovd = batch2ovd        # mapping from batch name to ovd name
-        if ovd_preprocessor is not None:
-            for batch_ovd_name, cfg in ovd_preprocessor.items():
-                self.register_module(batch_ovd_name, MODELS.register_module(cfg))     # batch_name.ovd_name
 
     def run_ovd(self, inputs, data_samples, ovd_name):
-        data_samples.set_field(name='image', value=inputs,
-                               field_type='metainfo')
         x = self.extract_feat(inputs)
         losses = dict()
         if self.with_rpn:
@@ -33,7 +28,7 @@ class OVDTwoStageDetector(TwoStageDetector):
             ovd_name = [ovd_name]
         for _ovd_name in ovd_name:
             losses.update(self.roi_head.run_ovd(x, data_samples, rpn_results_list,
-                                                _ovd_name))
+                                                _ovd_name, inputs))
         return losses
 
     def rpn_head_predict(self, x, batch_data_samples):
@@ -56,17 +51,11 @@ class OVDTwoStageDetector(TwoStageDetector):
                 ovd_name = self.batch2ovd[batch_name]
                 batch_inputs = multi_batch_inputs.pop(batch_name)
                 batch_data_samples = multi_batch_data_samples.pop(batch_name)
-                if hasattr(self, f'{batch_name}.{ovd_name}'):
-                    ovd_preprocessor = getattr(self, f'{batch_name}.{ovd_name}')
-                    ovd_data = ovd_preprocessor({'inputs': batch_inputs,
-                                                 'data_samples': batch_data_samples})
-                    batch_inputs = ovd_data['inputs']
-                    batch_data_samples = ovd_data['data_samples']
-
                 loss_ovd = self.run_ovd(batch_inputs,
                                         batch_data_samples,
                                         ovd_name)
                 for k, v in loss_ovd.items():
                     losses.update({k+f'_{batch_name}': v})
+            return losses
         else:
             return super().loss(multi_batch_inputs, multi_batch_data_samples)

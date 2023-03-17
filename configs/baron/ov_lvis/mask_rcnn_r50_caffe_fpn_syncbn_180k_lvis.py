@@ -32,7 +32,7 @@ clip_cfg = dict(          # ViT-B/32
 model = dict(
     type='OVDTwoStageDetector',
     rpn_head=dict(
-        type='DetachRPNHead',
+        type='CustomRPNHead',
         anchor_generator=dict(
             scale_major=False,      # align with detectron2
         )
