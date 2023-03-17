@@ -5,7 +5,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
-from mmcv.cnn import ConvModule
 from mmcv.ops import batched_nms
 from mmengine.config import ConfigDict
 from mmengine.structures import InstanceData

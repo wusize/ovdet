@@ -3,14 +3,16 @@ _base_ = 'mmdet::_base_/datasets/coco_detection.py'
 dataset_type = 'CocoDataset'
 data_root = 'data/coco/'
 file_client_args = dict(backend='disk')
-
+branch_field = ['det_batch', 'caption_batch']
 det_pipeline = [
     dict(type='LoadImageFromFile', file_client_args=file_client_args),
     dict(type='LoadAnnotations', with_bbox=True),
     dict(type='Resize', scale=(1333, 800), keep_ratio=True),
     dict(type='RandomFlip', prob=0.5),
     # dict(type='PackDetInputs')
-    dict(type='MultiBranch', det=dict(type='PackDetInputs'))
+    dict(type='MultiBranch',
+         branch_field=branch_field,
+         det_batch=dict(type='PackDetInputs'))
 ]
 
 ovd_pipeline = [
@@ -19,11 +21,14 @@ ovd_pipeline = [
     dict(type='Resize', scale=(1333, 800), keep_ratio=True),
     dict(type='RandomFlip', prob=0.5),
     # dict(type='PackDetInputs')
-    dict(type='MultiBranch', ovd=dict(type='PackDetInputs',
-                                      meta_keys=['img_id', 'img_path', 'ori_shape',
-                                                 'img_shape', 'scale_factor',
-                                                 'flip', 'flip_direction'] + ['captions', 'tags', 'image_ids']
-                                      )
+    dict(type='MultiBranch',
+         branch_field=branch_field,
+         caption_batch=dict(type='PackDetInputs',
+                            meta_keys=['img_id', 'img_path', 'ori_shape',
+                                       'img_shape', 'scale_factor',
+                                       'flip', 'flip_direction', 'captions',
+                                       'tags', 'image_ids']
+                            )
          )
 ]
 det_dataset = dict(
@@ -52,6 +57,7 @@ train_dataloader = dict(
                  source_ratio=batch_split),
     batch_sampler=None,
     dataset=dict(
+        _delete_=True,
         type='ConcatDataset',
         datasets=[det_dataset, ovd_dataset])
 )
@@ -59,13 +65,13 @@ train_dataloader = dict(
 val_evaluator = [
     dict(
         type='CocoMetric',
-        ann_file=data_root + 'annotations/instances_val2017_base.json',
+        ann_file=data_root + 'wusize/instances_val2017_base.json',
         metric='bbox',
         prefix='Base',
         format_only=False),
     dict(
         type='CocoMetric',
-        ann_file=data_root + 'annotations/instances_val2017_novel.json',
+        ann_file=data_root + 'wusize/instances_val2017_novel.json',
         metric='bbox',
         prefix='Novel',
         format_only=False)

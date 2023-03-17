@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from mmdet.structures.bbox import bbox_overlaps
 from mmcv.ops import nms
 from ovdet.methods.queues import Queues
@@ -63,3 +64,16 @@ class BaronBase(nn.Module):
                           iou_threshold=nms_thr)
 
         return proposals[nms_kept]
+
+    def _drop_word(self, word_embeddings):
+        p = self.word_dropout
+        num_preds, num_words, _ = word_embeddings.shape
+        mask = F.dropout(word_embeddings.new_ones(num_preds, num_words),
+                         p=p,
+                         training=self.training)
+        # check empty
+        is_empty = mask.sum(dim=-1) == 0.0
+        mask[is_empty, 0] = 1.0
+        mask = mask > 0.0
+
+        return mask

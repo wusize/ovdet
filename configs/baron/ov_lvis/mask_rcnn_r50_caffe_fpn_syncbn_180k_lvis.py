@@ -1,17 +1,10 @@
 _base_ = [
-    'mmdet::_base_/models/faster-rcnn_r50-caffe-c4.py',
-    '../_base_/datasets/coco_ovd_base.py',
-    '../_base_/schedules/schedule_90k.py',
-    '../_base_/iter_based_runtime.py'
+    '../../_base_/models/mask-rcnn_r50_fpn_syncbn.py',
+    '../../_base_/datasets/lvis_v1_ovd_base.py',
+    '../../_base_/schedules/schedule_180k.py',
+    '../../_base_/iter_based_runtime.py'
 ]
-class_weight = [1, 1, 1, 1, 0, 0, 1, 1, 1, 0,
-                0, 0, 0, 1, 1, 0, 0, 1, 1, 0,
-                0, 1, 1, 1, 1, 0, 1, 0, 1, 1,
-                1, 0, 0, 1, 0, 0, 0, 1, 0, 1,
-                0, 0, 1, 0, 1, 1, 1, 1, 1, 1,
-                1, 1, 0, 1, 1, 0, 1, 0, 0, 1,
-                0, 1, 1, 1, 1, 1, 0, 0, 1, 1,
-                1, 0, 1, 1, 1, 1, 0, 0, 0, 1] + [0]
+class_weight = 'data/metadata/lvis_v1_train_cat_norare_info.json'
 
 reg_layer = [
     dict(type='Linear', in_features=1024, out_features=1024),
@@ -39,34 +32,37 @@ clip_cfg = dict(          # ViT-B/32
 model = dict(
     type='OVDTwoStageDetector',
     rpn_head=dict(
-        type='CustomRPNHead',
+        type='DetachRPNHead',
         anchor_generator=dict(
             scale_major=False,      # align with detectron2
         )
     ),
-    backbone=dict(
-        init_cfg=dict(
-            checkpoint='checkpoints/resnet50_msra-5891d200.pth')),
     roi_head=dict(
         type='OVDStandardRoIHead',
-        shared_head=dict(
-            init_cfg=dict(
-                checkpoint='checkpoints/resnet50_msra-5891d200.pth')),
         clip_cfg=clip_cfg,
         bbox_head=dict(
-            type='BaronBBoxHead',
+            type='BaronShared4Conv1FCBBoxHead',
             reg_predictor_cfg=reg_layer,
             reg_class_agnostic=True,
-            cls_bias=-20.0,
-            cls_temp=25.0,
-            cls_embeddings_path='data/metadata/coco_clip_hand_craft_attn12.npy',
-            use_attn12_output=True,
+            cls_bias=None,
+            cls_temp=100.0,
+            test_cls_temp=100/0.7,    # follow detpro
+            cls_embeddings_path='data/metadata/lvis_v1_clip_detpro.npy',
+            bg_embedding='learn',
+            num_classes=1203,
+            use_attn12_output=False,
             loss_cls=dict(
                 type='CustomCrossEntropyLoss',
-                use_sigmoid=True,
+                use_sigmoid=False,
                 class_weight=class_weight),
         ),
+        mask_head=dict(num_classes=1203)
     ),
+    test_cfg=dict(
+        rcnn=dict(
+            score_thr=0.0001,
+            # LVIS allows up to 300
+            max_per_img=300))
 )
 
 # optimizer
@@ -74,3 +70,4 @@ optim_wrapper = dict(
     type='AmpOptimWrapper',        # amp training
     clip_grad=dict(max_norm=35, norm_type=2),
 )
+load_from = 'checkpoints/res50_fpn_soco_star_400.pth'

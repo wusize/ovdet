@@ -1,19 +1,15 @@
-import random
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-from mmdet.structures.bbox import bbox_xyxy_to_cxcywh
+from mmcv.ops import roi_align
+from mmengine.structures import InstanceData
 from mmengine.runner.amp import autocast
+from mmdet.structures.bbox import bbox_xyxy_to_cxcywh, bbox2roi
 from mmdet.registry import MODELS
-from .neighborhood_sampling import NeighborhoodSampling
-from ovdet.methods.queues import Queues
-from ovdet.methods.builder import build_queue, OVD
-from torchvision.ops import roi_align, nms
-from .utils import (SinePositionalEncoding, get_normed_boxes,
-                    repeat_crops_and_get_att_mask)
+from ovdet.methods.builder import OVD
 from ovdet.utils import multi_apply
-from mmengine.structures import InstanceData, BaseDataElement
 from .baron_base import BaronBase
+from .utils import repeat_crops_and_get_att_mask
+from .neighborhood_sampling import NeighborhoodSampling
 
 
 def process_sampling_result_per_image(sampling_result, device):
@@ -56,6 +52,7 @@ def box_ids2seq_id(box_ids):
 @OVD.register_module()
 class BaronKD(BaronBase):
     def __init__(self, bag_weight, single_weight, use_attn_mask, bag_temp, single_temp,
+                 use_gt,
                  clip_data_preprocessor,
                  **kwargs):
         super(BaronKD, self).__init__(**kwargs)
@@ -65,6 +62,7 @@ class BaronKD(BaronBase):
         self.use_attn_mask = use_attn_mask
         self.bag_weight = bag_weight
         self.single_weight = single_weight
+        self.use_gt = use_gt
         self.clip_data_preprocessor = MODELS.build(clip_data_preprocessor)
 
     def _sample_on_topk(self, topk_proposals):
@@ -88,7 +86,7 @@ class BaronKD(BaronBase):
         boxes = nmsed_proposals.bboxes.tolist()
         groups_per_proposal, normed_boxes, spanned_boxes, box_ids = \
             multi_apply(func, boxes,
-                        [nmsed_proposals.image_size] * len(nmsed_proposals))   # can be time-consuming
+                        [img_shape] * len(nmsed_proposals))   # can be time-consuming
         new_boxes = torch.cat([perm for single_proposal in groups_per_proposal
                                for single_group in single_proposal for perm in single_group], dim=0).to(device)
         sampled_instances = InstanceData(
@@ -106,33 +104,31 @@ class BaronKD(BaronBase):
 
         return proposals_per_image[topk_inds]
 
+    @staticmethod
+    def _add_gt_boxes(proposals, gt_boxes):
+        if len(gt_boxes) == 0:
+            return proposals
+        proposal_bboxes = proposals.bboxes
+        proposal_scores = proposals.scores
+        gt_scores = torch.ones_like(gt_boxes[:, 0])
+
+        return InstanceData(bboxes=torch.cat([proposal_bboxes, gt_boxes]),
+                            scores=torch.cat([proposal_scores, gt_scores]),
+                            metainfo=proposals.metainfo)
+
     def sample(self, rpn_results, batch_data_sample, **kwargs):
         img_shape = batch_data_sample.img_shape     # h, w
-        batch_data_sample.set_field(name='img_shape', value=img_shape,
-                                    field_type='metainfo', dtype=None)
+        rpn_results.set_field(name='img_shape', value=img_shape,
+                              field_type='metainfo', dtype=None)
         topk_proposals = self._sample_topk_proposals(rpn_results)
+        if self.use_gt:
+            topk_proposals = self._add_gt_boxes(topk_proposals,
+                                                batch_data_sample.gt_instances.bboxes)
         sampling_result = self._sample_on_topk(topk_proposals)
         sampling_result.set_field(name='img_id', value=batch_data_sample.img_id,
                                   field_type='metainfo', dtype=None)
-        image = batch_data_sample.pop('image')
-        data = self.clip_data_preprocessor({'inputs': image})
-        sampling_result.set_field(name='image', value=data['inputs'],
-                                  field_type='metainfo')
 
         return sampling_result
-
-    def _drop_word(self, word_embeddings):
-        p = self.word_dropout
-        num_preds, num_words, _ = word_embeddings.shape
-        mask = F.dropout(word_embeddings.new_ones(num_preds, num_words),
-                         p=p,
-                         training=self.training)
-        # check empty
-        is_empty = mask.sum(dim=-1) == 0.0
-        mask[is_empty, 0] = 1.0
-        mask = mask > 0.0
-
-        return mask
 
     @torch.no_grad()
     def _bbox_clip_image(self, spanned_boxes, clip_images,
@@ -143,8 +139,12 @@ class BaronKD(BaronBase):
         image_encoder = clip_model.image_encoder
         num_groups_per_image = [b.shape[0] for b in spanned_boxes]
         clip_input_size = image_encoder.input_resolution
+
+        clip_images = self.clip_data_preprocessor({'inputs': clip_images})['inputs']
+
         input_to_clip = roi_align(
-            clip_images.tensor, spanned_boxes, (clip_input_size, clip_input_size), 1.0, 2, True)
+            clip_images, bbox2roi(spanned_boxes), (clip_input_size, clip_input_size),
+            1.0, 2, 'avg', True)
         input_to_clip = input_to_clip.split(num_groups_per_image, dim=0)
         repeated_crops, attn_masks = multi_apply(repeat_crops_and_get_att_mask,
                                                  input_to_clip, seqs_split_by_group,
@@ -159,11 +159,11 @@ class BaronKD(BaronBase):
         else:
             attn_masks = torch.cat(attn_masks, dim=0)
         clip_img_features, clip_img_tokens = image_encoder.encode_image(
-            repeated_crops, normalize=True, return_image_tokens=True, attn_masks=attn_masks)
-
+            repeated_crops, normalize=True, return_tokens=True, attn_masks=attn_masks)
         return clip_img_features, clip_img_tokens
 
-    def get_losses(self, pseudo_words, clip_model, sampling_results):
+    def get_losses(self, pseudo_words, sampling_results, clip_model, images,
+                   *args, **kwargs):
         clip_model.eval()
         image_ids = [res.img_id for res in sampling_results]
         device = pseudo_words.device
@@ -203,7 +203,7 @@ class BaronKD(BaronBase):
                                                 text_pe=True, normalize=True,
                                                 return_word_tokens=True)
             clip_text_features = clip_text_features.float()
-            clip_image_features, clip_image_tokens = self._bbox_clip_image(spanned_boxes, sampling_results.image,
+            clip_image_features, clip_image_tokens = self._bbox_clip_image(spanned_boxes, images,
                                                                            seqs_split_by_group,
                                                                            normed_boxes_split_by_perms,
                                                                            clip_model)
@@ -258,8 +258,8 @@ class BaronKD(BaronBase):
             img_ids = torch.cat(img_ids).to(device)
             normed_boxes = torch.cat(normed_boxes, dim=0).split(preds_split_by_perms, dim=0)
             clip_patch_features = F.normalize(roi_align(
-                clip_image_tokens, normed_boxes, (1, 1),
-                float(clip_image_tokens.shape[-1]), 2, True)[..., 0, 0], dim=-1)
+                clip_image_tokens, bbox2roi(normed_boxes).to(clip_image_tokens.dtype), (1, 1),
+                float(clip_image_tokens.shape[-1]), 2, 'avg', True)[..., 0, 0], dim=-1)
             num_words_per_pred = [wm.sum(-1).tolist() for wm in word_masks]
             clip_word_features = [tk.split(spl) for (tk, spl)
                                   in zip(clip_word_tokens, num_words_per_pred)]
@@ -317,4 +317,6 @@ class BaronKD(BaronBase):
                                                                img_ids.view(-1, 1)], dim=-1).detach(),
                                  clip_patch_features=torch.cat([clip_patch_features,
                                                                 img_ids.view(-1, 1)], dim=-1).detach())
-        return losses, queues_update
+            self.queues.dequeue_and_enqueue(queues_update)
+
+        return losses

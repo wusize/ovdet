@@ -1,16 +1,13 @@
 import math
 import random
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from mmdet.structures.bbox import bbox_xyxy_to_cxcywh, bbox_overlaps
+from mmdet.structures.bbox import bbox_xyxy_to_cxcywh
 from .baron_base import BaronBase
 from mmengine.structures import InstanceData, BaseDataElement
 from mmengine.runner.amp import autocast
-from ovdet.methods.queues import Queues
-from ovdet.methods.builder import build_queue, OVD
+from ovdet.methods.builder import OVD
 from ovdet.models.vlms.clip.utils import tokenize_dynamic
-from .utils import get_normed_boxes, SoftTargetCrossEntropy, SinePositionalEncoding
+from .utils import get_normed_boxes, SoftTargetCrossEntropy
 
 
 def perm_generator(seq):
@@ -56,16 +53,10 @@ class BaronCaption(BaronBase):
             sampled_idx = random.sample(list(range(num_proposals)), k=num_samples)
             proposals = proposals[sampled_idx]
         # add image boxes
-        added_proposals = InstanceData(bboxes=image_boxes,
-                                       labels=torch.tensor([0] * len(image_boxes), dtype=torch.int64,
-                                                           device=image_boxes.device),
-                                       scores=torch.ones_like(image_boxes[:, 0]))
-        proposals = InstanceData.cat([proposals, added_proposals])
-        normed_boxes = get_normed_boxes(proposals.bboxes,
-                                        image_boxes[0])
-
-        return BaseDataElement(proposals=proposals, normed_boxes=normed_boxes,
-                               metainfo=metainfo)
+        bboxes = torch.cat([proposals.bboxes, image_boxes])
+        normed_boxes = get_normed_boxes(bboxes, image_boxes[0])
+        metainfo.update(normed_boxes=normed_boxes)
+        return InstanceData(bboxes=bboxes, metainfo=metainfo)
 
     def obtain_topk_proposal(self, proposals):
         num = min(len(proposals), self.sampling_cfg['topk'])
@@ -81,49 +72,37 @@ class BaronCaption(BaronBase):
         sampling_result = self.sample_on_topk(rpn_results, image_boxes, batch_data_sample.metainfo)
         return sampling_result
 
-    def _drop_word(self, word_embeddings):
-        p = self.word_dropout
-        num_preds, num_words, _ = word_embeddings.shape
-        mask = F.dropout(word_embeddings.new_ones(num_preds, num_words),
-                         p=p,
-                         training=self.training)
-        # check empty
-        is_empty = mask.sum(dim=-1) == 0.0
-        mask[is_empty, 0] = 1.0
-        mask = mask > 0.0
-
-        return mask
-
     @torch.no_grad()
-    def get_caption_features(self, captions, image_ids, device, clip_model):
+    def get_caption_features(self, captions, image_ids, device, text_encoder):
         all_captions = []
         all_image_ids = []
-
         for captions_, image_id in zip(captions, image_ids):
             all_captions += captions_
             all_image_ids += [image_id] * len(captions_)
 
         caption_image_ids = torch.tensor(all_image_ids).to(device)
         tokens = tokenize_dynamic(all_captions, truncate=True).to(device)
-        caption_features = clip_model.encode_text(tokens, normalize=True).float()
+        caption_features = text_encoder.encode_text(tokens, normalize=True).float()
         return caption_features, caption_image_ids
 
-    def get_losses(self, pseudo_words, clip_model, sampling_results):
+    def get_losses(self, pseudo_words, sampling_results, clip_model, *args, **kwargs):
         image_ids = [im.get('img_id') for im in sampling_results]
         clip_model.eval()
+        text_encoder = clip_model.text_encoder
         caption_pseudo_words = pseudo_words
         device = caption_pseudo_words.device
         clip_caption_features, caption_img_ids = self.get_caption_features([v.get('captions')[0]
                                                                             for v in sampling_results],
                                                                            image_ids,
                                                                            device,
-                                                                           clip_model)
+                                                                           text_encoder)
 
         num_boxes_per_image = [c.get('normed_boxes').shape[0] for c in sampling_results]
         positions = bbox_xyxy_to_cxcywh(torch.cat([c.get('normed_boxes') for c in sampling_results], dim=0))
         position_embeddings = self.positional_embed(positions)
 
-        permutations_per_image = [c.normed_boxes.shape[0] for c in sampling_results]
+        permutations_per_image = [self._get_permutations_for_single_image(len(c))
+                                  for c in sampling_results]
 
         num_perms_per_image = [len(b) for b in permutations_per_image]
         caption_pseudo_words = (caption_pseudo_words + position_embeddings).split(num_boxes_per_image, dim=0)
@@ -138,13 +117,13 @@ class BaronCaption(BaronBase):
         context_length = max([seq.shape[0] for seq in caption_pseudo_sequences])
         with autocast():
             # TODO: get local image tokens
-            pseudo_text, end_token_ids = clip_model.prepare_pseudo_text(
+            pseudo_text, end_token_ids = text_encoder.prepare_pseudo_text(
                 caption_pseudo_sequences,
                 context_length=context_length + 2)  # add start and stop token
             clip_text_features = \
-                clip_model.encode_pseudo_text(pseudo_text, end_token_ids,
-                                              text_pe=True, normalize=True,
-                                              return_word_tokens=False)
+                text_encoder.encode_pseudo_text(pseudo_text, end_token_ids,
+                                                text_pe=True, normalize=True,
+                                                return_word_tokens=False)
 
         pred_image_ids = []
         for num_perms, img_id in zip(num_perms_per_image, image_ids):
@@ -157,22 +136,19 @@ class BaronCaption(BaronBase):
 
         global_clip_text_features = self.queues.get_queue('clip_cap_text_features')  # add "_cap_" to avoid conflict
         contrast_clip_text_features = torch.cat([clip_text_features,
-                                                 global_clip_text_features[..., :-4]], dim=0)
+                                                 global_clip_text_features[..., :-1]], dim=0)
         contrast_clip_text_image_ids = torch.cat([pred_image_ids,
-                                                  global_clip_text_features[..., -4:]], dim=0)
+                                                  global_clip_text_features[..., -1]], dim=0)
 
         global_clip_caption_features = self.queues.get_queue('clip_caption_features')
         contrast_clip_caption_features = torch.cat([clip_caption_features,
-                                                    global_clip_caption_features[..., :-4]], dim=0)
+                                                    global_clip_caption_features[..., :-1]], dim=0)
         contrast_clip_caption_image_ids = torch.cat([caption_img_ids,
-                                                     global_clip_caption_features[..., -4:]], dim=0)
+                                                     global_clip_caption_features[..., -1]], dim=0)
 
         # matrix 0
-        image_id_match_matrix = contrast_clip_text_image_ids[:, None] == contrast_clip_caption_image_ids[None]
-        if self.cap_mosaic == 'concat':
-            label_matrix_0 = image_id_match_matrix.float().prod(dim=-1)   # every entry should match
-        else:
-            label_matrix_0 = image_id_match_matrix.float().sum(dim=-1).clamp(max=1.0)
+        label_matrix_0 = (contrast_clip_text_image_ids[:, None]
+                          == contrast_clip_caption_image_ids[None]).float()
         # matrix 1
         label_matrix_1 = label_matrix_0.T
 
@@ -184,11 +160,10 @@ class BaronCaption(BaronBase):
 
         loss = loss_0 * 0.5 + loss_1 * 0.5
 
-        clip_caption_features_update = torch.cat([clip_caption_features,
-                                                  caption_img_ids], dim=-1)
-
-        queue_update = dict(clip_caption_features=clip_caption_features_update,
-                            clip_cap_text_features=torch.cat([clip_text_features, pred_image_ids], dim=-1))
+        queue_update = dict(clip_caption_features=torch.cat([clip_caption_features,
+                                                             caption_img_ids.view(-1, 1)], dim=-1),
+                            clip_cap_text_features=torch.cat([clip_text_features,
+                                                              pred_image_ids.view(-1, 1)], dim=-1))
         self.queues.dequeue_and_enqueue(queue_update)
 
         return dict(loss_caption=loss * self.loss_weight)

@@ -1,3 +1,5 @@
+import json
+import torch
 from functools import partial
 from six.moves import map, zip
 
@@ -19,3 +21,14 @@ def multi_apply(func, *args, **kwargs):
     pfunc = partial(func, **kwargs) if kwargs else func
     map_results = map(pfunc, *args)
     return tuple(map(list, zip(*map_results)))
+
+
+def load_class_freq(
+        path='data/metadata/lvis_v1_train_cat_norare_info.json',
+        freq_weight=1.0,
+        min_count=0):
+    cat_info = json.load(open(path, 'r'))
+    cat_info = torch.tensor(
+        [max(c['image_count'], min_count) for c in sorted(cat_info, key=lambda x: x['id'])])
+    freq_weight = cat_info.float() ** freq_weight
+    return freq_weight

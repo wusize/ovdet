@@ -1,5 +1,5 @@
-_base_ = 'mmdet::_base_/models/faster-rcnn_r50_fpn.py'
-norm_cfg = dict(type='SyncBN', requires_grad=True)
+_base_ = 'mmdet::_base_/models/mask-rcnn_r50_fpn.py'
+norm_cfg = dict(type='BN', requires_grad=True)
 # model settings
 model = dict(
     backbone=dict(
@@ -17,6 +17,10 @@ model = dict(
             reg_class_agnostic=True,
             loss_cls=dict(
                 type='CustomCrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
+        ),
+        mask_head=dict(
+            norm_cfg=norm_cfg,
+            class_agnostic=True,
         )
     ),
     # model training and testing settings

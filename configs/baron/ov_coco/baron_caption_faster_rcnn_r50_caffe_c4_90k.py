@@ -1,8 +1,8 @@
 _base_ = [
     'mmdet::_base_/models/faster-rcnn_r50-caffe-c4.py',
-    '../_base_/datasets/coco_ovd_base.py',
-    '../_base_/schedules/schedule_90k.py',
-    '../_base_/iter_based_runtime.py'
+    '../../_base_/datasets/coco_ovd_caption.py',
+    '../../_base_/schedules/schedule_90k.py',
+    '../../_base_/iter_based_runtime.py'
 ]
 class_weight = [1, 1, 1, 1, 0, 0, 1, 1, 1, 0,
                 0, 0, 0, 1, 1, 0, 0, 1, 1, 0,
@@ -14,9 +14,9 @@ class_weight = [1, 1, 1, 1, 0, 0, 1, 1, 1, 0,
                 1, 0, 1, 1, 1, 1, 0, 0, 0, 1] + [0]
 
 reg_layer = [
-    dict(type='Linear', in_features=1024, out_features=1024),
+    dict(type='Linear', in_features=2048, out_features=2048),
     dict(type='ReLU', inplace=True),
-    dict(type='Linear', in_features=1024, out_features=4)
+    dict(type='Linear', in_features=2048, out_features=4)
 ]
 
 clip_cfg = dict(          # ViT-B/32
@@ -36,8 +36,38 @@ clip_cfg = dict(          # ViT-B/32
     )
 )
 
+ovd_cfg = dict(type='BaronCaption',
+               loss_weight=15.0, norm_temp=30.0, max_caps=5,
+               num_words=4, word_dim=512,
+               words_drop_ratio=0.5,
+               use_pe=True, queue_cfg=dict(names=['clip_cap_text_features',
+                                                  'clip_caption_features'],
+                                           lengths=[1024] * 2,
+                                           emb_dim=512, id_length=1),
+               sampling_cfg=dict(shape_ratio_thr=0.25,
+                                 area_ratio_thr=0.01,
+                                 objectness_thr=0.85,
+                                 nms_thr=0.2,
+                                 max_num=10,
+                                 topk=128,
+                                 max_perms=4
+                                 )
+               )
+
+
 model = dict(
     type='OVDTwoStageDetector',
+    data_preprocessor=dict(
+        type='MultiBranchDataPreprocessor',
+        _delete_=True,
+        data_preprocessor=dict(
+            type='DetDataPreprocessor',
+            mean=[103.530, 116.280, 123.675],
+            std=[1.0, 1.0, 1.0],
+            bgr_to_rgb=False,
+            pad_size_divisor=32
+        ),
+    ),
     rpn_head=dict(
         type='CustomRPNHead',
         anchor_generator=dict(
@@ -47,12 +77,14 @@ model = dict(
     backbone=dict(
         init_cfg=dict(
             checkpoint='checkpoints/resnet50_msra-5891d200.pth')),
+    batch2ovd=dict(caption_batch='baron_caption'),
     roi_head=dict(
         type='OVDStandardRoIHead',
         shared_head=dict(
             init_cfg=dict(
                 checkpoint='checkpoints/resnet50_msra-5891d200.pth')),
         clip_cfg=clip_cfg,
+        ovd_cfg=dict(baron_caption=ovd_cfg),
         bbox_head=dict(
             type='BaronBBoxHead',
             reg_predictor_cfg=reg_layer,

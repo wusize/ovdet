@@ -116,7 +116,7 @@ class CLIPResLayer4(BaseModule):
     def init_weights(self):
         super().init_weights()
         if self.freeze:
-            print_log('Freeze the weights of CLIP text encoder.')
+            print_log('Freeze the weights of CLIPResLayer4.')
             self.eval()
             for param in self.parameters():
                 param.requires_grad = False
@@ -167,7 +167,7 @@ class CLIPResNet(BaseModule):
     def init_weights(self):
         super().init_weights()
         if self.freeze:
-            print_log('Freeze the weights of CLIP text encoder.')
+            print_log('Freeze the weights of CLIPResNet.')
             self.eval()
             for param in self.parameters():
                 param.requires_grad = False
@@ -181,7 +181,7 @@ class CLIPResNet(BaseModule):
 
         return nn.Sequential(*layers)
 
-    def forward(self, x, return_tokens=False, attn_masks=None):
+    def encode_image(self, x: torch.Tensor, normalize=True, return_tokens=False, attn_masks=None):
         def stem(x):
             for conv, bn in [(self.conv1, self.bn1), (self.conv2, self.bn2), (self.conv3, self.bn3)]:
                 x = self.relu(bn(conv(x)))
@@ -196,6 +196,8 @@ class CLIPResNet(BaseModule):
         x = self.layer4(x)
 
         x, image_tokens = self.attnpool(x, return_tokens=return_tokens, attn_masks=attn_masks)
+        if normalize:
+            x = F.normalize(x, p=2, dim=-1)
         if return_tokens:
             assert image_tokens is not None
             return x, image_tokens
@@ -235,7 +237,7 @@ class CLIPViT(BaseModule):
     def init_weights(self):
         super().init_weights()
         if self.freeze:
-            print_log('Freeze the weights of CLIP text encoder.')
+            print_log('Freeze the weights of CLIPViT.')
             self.eval()
             for param in self.parameters():
                 param.requires_grad = False
@@ -251,7 +253,7 @@ class CLIPViT(BaseModule):
 
         return rescaled_positional_embedding.to(dtype=dtype)
 
-    def forward(self, x: torch.Tensor, return_tokens, attn_masks=None):
+    def encode_image(self, x: torch.Tensor, normalize=True, return_tokens=False, attn_masks=None):
         x = self.conv1(x)  # shape = [*, width, grid, grid]
         grid_size = x.shape[-1]
         x = x.reshape(x.shape[0], x.shape[1], -1)  # shape = [*, width, grid ** 2]
@@ -259,7 +261,7 @@ class CLIPViT(BaseModule):
         x = torch.cat([self.class_embedding.to(x.dtype)
                        + torch.zeros(x.shape[0], 1, x.shape[-1], dtype=x.dtype, device=x.device),
                        x], dim=1)  # shape = [*, grid ** 2 + 1, width]
-        if grid_size == self.pe_grid_size:
+        if grid_size == self.attn_resolution:
             pe = self.positional_embedding.to(x.dtype)
         else:
             pe = self.rescale_positional_embedding(out_size=grid_size, dtype=x.dtype)
@@ -275,6 +277,10 @@ class CLIPViT(BaseModule):
 
         if self.proj is not None:
             x = x @ self.proj
+
+        if normalize:
+            x = F.normalize(x, p=2, dim=-1)
+
         if return_tokens:
             image_tokens = image_tokens.permute(1, 0, 2)
             image_tokens = self.ln_post(image_tokens)
@@ -284,7 +290,7 @@ class CLIPViT(BaseModule):
             # return the processed image token embeddings
             image_tokens = image_tokens[:, 1:].permute(0, 2, 1).contiguous()
             image_tokens = image_tokens.view(x.shape[0], -1, grid_size, grid_size)
+            return x, image_tokens
         else:
             assert image_tokens is None
-
-        return x, image_tokens
+            return x

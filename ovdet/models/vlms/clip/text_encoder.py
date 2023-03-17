@@ -60,12 +60,12 @@ class CLIPTextEncoder(BaseModule):
         return mask
 
     def encode_text(self, text, normalize=True, return_word_tokens=False):
-        x = self.token_embedding(text).type(self.dtype)  # [batch_size, n_ctx, d_model]
+        x = self.token_embedding(text)  # [batch_size, n_ctx, d_model]
         if text.shape[1] <= self.context_length:
-            x = x + self.positional_embedding.type(self.dtype)[:text.shape[1]]
+            x = x + self.positional_embedding[:text.shape[1]]
             custom_attn_mask = None
         else:
-            pe = self.positional_embedding.type(self.dtype)
+            pe = self.positional_embedding
             new_pe = F.interpolate(pe.T[None], size=text.shape[1], mode='linear',
                                    align_corners=True)[0].T
             custom_attn_mask = self.build_attention_mask(text.shape[1]).to(self.device)
@@ -75,7 +75,7 @@ class CLIPTextEncoder(BaseModule):
                                           cls_indices=text.argmax(dim=-1),
                                           attn_masks=custom_attn_mask)
         x = x.permute(1, 0, 2)  # LND -> NLD
-        x = self.ln_final(x).type(self.dtype)
+        x = self.ln_final(x)
 
         # x.shape = [batch_size, n_ctx, transformer.width]
         # take features from the eot embedding (eot_token is the highest number in each sequence)
@@ -86,7 +86,7 @@ class CLIPTextEncoder(BaseModule):
 
         if return_word_tokens:
             word_tokens = word_tokens.permute(1, 0, 2)  # LND -> NLD
-            word_tokens = self.ln_final(word_tokens).type(self.dtype)
+            word_tokens = self.ln_final(word_tokens)
             word_tokens = word_tokens @ self.text_projection
             if normalize:
                 word_tokens = F.normalize(word_tokens, dim=-1)
@@ -99,9 +99,9 @@ class CLIPTextEncoder(BaseModule):
             return out
 
     def encode_text_endk(self, text, stepk=12, normalize=True, **kwargs):
-        x = self.token_embedding(text).type(self.dtype)  # [batch_size, n_ctx, d_model]
+        x = self.token_embedding(text)  # [batch_size, n_ctx, d_model]
 
-        x = x + self.positional_embedding.type(self.dtype)[:text.shape[1]]
+        x = x + self.positional_embedding[:text.shape[1]]
         x = x.permute(1, 0, 2)  # NLD -> LND
 
         for i in range(stepk):
@@ -109,7 +109,7 @@ class CLIPTextEncoder(BaseModule):
 
         # x, att = self.transformer(x)
         out = x.permute(1, 0, 2)  # LND -> NLD
-        # x = self.ln_final(x).type(self.dtype)
+        # x = self.ln_final(x)
 
         # x.shape = [batch_size, n_ctx, transformer.width]
         # take features from the eot embedding (eot_token is the highest number in each sequence)
@@ -123,19 +123,19 @@ class CLIPTextEncoder(BaseModule):
     def encode_pseudo_text_endk(self, x, end_token_ids, text_pe=True,
                                 stepk=12, normalize=True):
         if text_pe:
-            x = x + self.positional_embedding.type(self.dtype)[:x.shape[1]]
+            x = x + self.positional_embedding[:x.shape[1]]
         else:
             for i in range(x.shape[0]):
                 x[i, end_token_ids[i]:] = x[i, end_token_ids[i]:] + self.positional_embedding.type(
                     self.dtype)[end_token_ids[i]:]
-                x[i, 0] = x[i, 0] + self.positional_embedding.type(self.dtype)[0]
+                x[i, 0] = x[i, 0] + self.positional_embedding[0]
 
         x = x.permute(1, 0, 2)  # NLD -> LND
         for i in range(stepk):
             x, _ = self.transformer.resblocks[i](x)
 
         out = x.permute(1, 0, 2)  # LND -> NLD
-        # x = self.ln_final(x).type(self.dtype)
+        # x = self.ln_final(x)
 
         # x.shape = [batch_size, n_ctx, transformer.width]
         # take features from the eot embedding (eot_token is the highest number in each sequence)
@@ -150,12 +150,12 @@ class CLIPTextEncoder(BaseModule):
     def encode_pseudo_text(self, x, end_token_ids, text_pe=True, normalize=True,
                            return_word_tokens=False):
         if text_pe:
-            x = x + self.positional_embedding.type(self.dtype)[:x.shape[1]]
+            x = x + self.positional_embedding[:x.shape[1]]
         else:
             for i in range(x.shape[0]):
                 x[i, end_token_ids[i]:] = x[i, end_token_ids[i]:] + self.positional_embedding.type(
                     self.dtype)[end_token_ids[i]:]
-                x[i, 0] = x[i, 0] + self.positional_embedding.type(self.dtype)[0]
+                x[i, 0] = x[i, 0] + self.positional_embedding[0]
 
         x = x.permute(1, 0, 2)  # NLD -> LND
 
@@ -165,7 +165,7 @@ class CLIPTextEncoder(BaseModule):
         x, word_tokens = self.transformer.resblocks[-1](x, return_tokens=return_word_tokens,
                                                         cls_indices=end_token_ids)
         x = x.permute(1, 0, 2)  # LND -> NLD
-        x = self.ln_final(x).type(self.dtype)
+        x = self.ln_final(x)
 
         # x.shape = [batch_size, n_ctx, transformer.width]
         # take features from the eot embedding (eot_token is the highest number in each sequence)
@@ -175,7 +175,7 @@ class CLIPTextEncoder(BaseModule):
             out = F.normalize(out, dim=-1, p=2)
         if return_word_tokens:
             word_tokens = word_tokens.permute(1, 0, 2)  # LND -> NLD
-            word_tokens = self.ln_final(word_tokens).type(self.dtype)
+            word_tokens = self.ln_final(word_tokens)
             word_tokens = word_tokens @ self.text_projection
             word_tokens = [seq[1:end_token_id]
                            for seq, end_token_id in zip(word_tokens, end_token_ids)]
@@ -189,9 +189,9 @@ class CLIPTextEncoder(BaseModule):
         device = pseudo_tokens.device
         num_preds, num_words, word_dim = pseudo_tokens.shape
         sot_token = self.token_embedding(torch.tensor([self.sot_token],
-                                                      device=device)).type(self.dtype)
+                                                      device=device))
         eot_token = self.token_embedding(torch.tensor([self.eot_token],
-                                                      device=device)).type(self.dtype)
+                                                      device=device))
         sot_token = sot_token.view(1, 1, word_dim).repeat(num_preds, 1, 1)
         eot_token = eot_token.view(1, 1, word_dim).repeat(num_preds, 1, 1)
         pseudo_tokens = torch.cat([sot_token, pseudo_tokens, eot_token], dim=1)
@@ -201,7 +201,7 @@ class CLIPTextEncoder(BaseModule):
         valid_mask_flat = valid_mask.view(-1)
 
         empty_token = self.token_embedding(torch.tensor([0],
-                                                        device=device)).type(self.dtype)
+                                                        device=device))
         template_flat = empty_token.view(1, word_dim).repeat(num_preds * num_words, 1)
 
         valid_mask_zero_pad = torch.cat([torch.zeros_like(valid_mask[:, :1]),
@@ -221,11 +221,11 @@ class CLIPTextEncoder(BaseModule):
     def prepare_pseudo_text(self, pseudo_tokens, context_length):
         device = pseudo_tokens[0].device
         sot_token = self.token_embedding(torch.tensor([self.sot_token],
-                                                      device=device)).type(self.dtype)  # [batch_size, n_ctx, d_model]
+                                                      device=device)) # [batch_size, n_ctx, d_model]
         eot_token = self.token_embedding(torch.tensor([self.eot_token],
-                                                      device=device)).type(self.dtype)
+                                                      device=device))
         empty_token = self.token_embedding(torch.tensor([0],
-                                                        device=device)).type(self.dtype)
+                                                        device=device))
         pseudo_tokens = [torch.cat([sot_token, tokens, eot_token], dim=0) for tokens in pseudo_tokens]
 
         def _pad_sequence(tokens):

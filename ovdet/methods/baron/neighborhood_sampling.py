@@ -3,7 +3,14 @@ import random
 import torch
 import numpy as np
 from ovdet.utils import multi_apply
-from .utils import get_normed_boxes
+
+
+def get_normed_boxes(boxes, spanned_box):
+    spanned_box_shape = spanned_box[2:] - spanned_box[:2]
+    boxes = boxes.reshape(-1, 2, 2) - spanned_box[:2].reshape(1, 1, 2)
+    boxes = boxes / (spanned_box_shape.reshape(1, 1, 2) + 1e-12)
+
+    return boxes.reshape(-1, 4)
 
 
 def get_spanned_box(boxes, image_size=None):

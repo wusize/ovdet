@@ -7,7 +7,11 @@ branch_field = ['det_batch', 'kd_batch']
 det_pipeline = [
     dict(type='LoadImageFromFile', file_client_args=file_client_args),
     dict(type='LoadAnnotations', with_bbox=True),
-    dict(type='Resize', scale=(1333, 800), keep_ratio=True),
+    dict(
+        type='RandomChoiceResize',
+        scales=[(1333, 640), (1333, 672), (1333, 704), (1333, 736),
+                (1333, 768), (1333, 800)],
+        keep_ratio=True),
     dict(type='RandomFlip', prob=0.5),
     # dict(type='PackDetInputs')
     dict(type='MultiBranch',
@@ -18,7 +22,11 @@ det_pipeline = [
 ovd_pipeline = [
     dict(type='LoadImageFromFile', file_client_args=file_client_args),
     dict(type='LoadAnnotations', with_bbox=True),
-    dict(type='Resize', scale=(1333, 800), keep_ratio=True),
+    dict(
+        type='RandomChoiceResize',
+        scales=[(1333, 640), (1333, 672), (1333, 704), (1333, 736),
+                (1333, 768), (1333, 800)],
+        keep_ratio=True),
     dict(type='RandomFlip', prob=0.5),
     # dict(type='PackDetInputs')
     dict(type='MultiBranch',
@@ -29,7 +37,7 @@ ovd_pipeline = [
 det_dataset = dict(
     type='CocoDataset',
     data_root=data_root,
-    ann_file='annotations/instances_train2017_base.json',
+    ann_file='wusize/instances_train2017_base.json',
     data_prefix=dict(img='train2017/'),
     filter_cfg=dict(filter_empty_gt=True, min_size=32),
     pipeline=det_pipeline)
@@ -37,7 +45,7 @@ det_dataset = dict(
 ovd_dataset = dict(
     type='CocoDataset',
     data_root=data_root,
-    ann_file='annotations/instances_train2017_base.json',   # the gt boxes of base categories might be used
+    ann_file='wusize/instances_train2017_base.json',   # the gt boxes of base categories might be used
     data_prefix=dict(img='train2017/'),
     filter_cfg=dict(filter_empty_gt=False),
     pipeline=ovd_pipeline
