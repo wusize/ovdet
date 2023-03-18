@@ -1,17 +1,10 @@
 _base_ = [
-    '../../_base_/models/faster-rcnn_r50_fpn_syncbn.py',
-    '../../_base_/datasets/coco_ovd_kd_ms.py',
+    '../../_base_/models/mask-rcnn_r50_fpn_syncbn.py',
+    '../../_base_/datasets/lvis_v1_ovd_kd.py',
     '../../_base_/schedules/schedule_180k.py',
     '../../_base_/iter_based_runtime.py'
 ]
-class_weight = [1, 1, 1, 1, 0, 0, 1, 1, 1, 0,
-                0, 0, 0, 1, 1, 0, 0, 1, 1, 0,
-                0, 1, 1, 1, 1, 0, 1, 0, 1, 1,
-                1, 0, 0, 1, 0, 0, 0, 1, 0, 1,
-                0, 0, 1, 0, 1, 1, 1, 1, 1, 1,
-                1, 1, 0, 1, 1, 0, 1, 0, 0, 1,
-                0, 1, 1, 1, 1, 1, 0, 0, 1, 1,
-                1, 0, 1, 1, 1, 1, 0, 0, 0, 1] + [1]
+class_weight = 'data/metadata/lvis_v1_train_cat_norare_info.json'
 
 reg_layer = [
     dict(type='Linear', in_features=1024, out_features=1024),
@@ -50,7 +43,7 @@ clip_cfg = dict(          # ViT-B/32
 
 ovd_cfg = dict(type='BaronKD',
                use_gt=True,
-               bag_weight=1.0, single_weight=0.1, use_attn_mask=False, bag_temp=30.0, single_temp=50.0,
+               bag_weight=1.0, single_weight=0.1, use_attn_mask=False, bag_temp=20.0, single_temp=30.0,
                clip_data_preprocessor=dict(
                    type='ImgDataPreprocessor',
                    mean=[(122.7709383 - 123.675) / 58.395,
@@ -68,8 +61,8 @@ ovd_cfg = dict(type='BaronKD',
                                  area_ratio_thr=0.01,
                                  objectness_thr=0.85,
                                  nms_thr=0.1,
-                                 topk=300,
-                                 max_groups=3,
+                                 topk=500,
+                                 max_groups=4,
                                  max_permutations=2,
                                  alpha=3.0,
                                  cut_off_thr=0.3,
@@ -92,7 +85,7 @@ model = dict(
             pad_size_divisor=32),
     ),
     rpn_head=dict(
-        type='DetachRPNHead',
+        type='CustomRPNHead',
         anchor_generator=dict(
             scale_major=False,      # align with detectron2
         )
@@ -107,21 +100,30 @@ model = dict(
             reg_predictor_cfg=reg_layer,
             reg_class_agnostic=True,
             cls_bias=None,
-            cls_temp=50.0,
-            cls_embeddings_path='data/metadata/coco_clip_hand_craft_attn12.npy',
+            cls_temp=100.0,
+            test_cls_temp=100/0.7,   # follow detpro
+            num_classes=1203,
+            cls_embeddings_path='data/metadata/lvis_v1_clip_detpro.npy',
             bg_embedding='learn',
-            use_attn12_output=True,
+            use_attn12_output=False,
             loss_cls=dict(
                 type='CustomCrossEntropyLoss',
                 use_sigmoid=False,
                 class_weight=class_weight),
         ),
+        mask_head=dict(num_classes=1203)
     ),
+    test_cfg=dict(
+        rcnn=dict(
+            score_thr=0.0001,
+            # LVIS allows up to 300
+            max_per_img=300))
 )
 
 # optimizer
 optim_wrapper = dict(
     type='AmpOptimWrapper',        # amp training
+    optimizer=dict(type='SGD', lr=0.02, momentum=0.9, weight_decay=0.000025),
     clip_grad=dict(max_norm=35, norm_type=2),
 )
 load_from = 'checkpoints/res50_fpn_soco_star_400.pth'
