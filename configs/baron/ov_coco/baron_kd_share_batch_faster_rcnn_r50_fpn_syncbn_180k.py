@@ -81,16 +81,6 @@ ovd_cfg = dict(type='BaronKD',
 
 model = dict(
     type='OVDTwoStageDetector',
-    data_preprocessor=dict(
-        type='MultiBranchDataPreprocessor',
-        _delete_=True,
-        data_preprocessor=dict(
-            type='DetDataPreprocessor',
-            mean=[123.675, 116.28, 103.53],
-            std=[58.395, 57.12, 57.375],
-            bgr_to_rgb=True,
-            pad_size_divisor=32),
-    ),
     rpn_head=dict(
         type='DetachRPNHead',
         anchor_generator=dict(
