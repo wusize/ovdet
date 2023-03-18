@@ -1,5 +1,4 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-import torch
 import torch.nn.functional as F
 from mmdet.registry import MODELS
 from mmdet.models.losses.utils import weight_reduce_loss
@@ -59,8 +58,9 @@ def cross_entropy(pred,
     # The default value of ignore_index is the same as F.cross_entropy
     ignore_index = -100 if ignore_index is None else ignore_index
     # element-wise losses
-    mask_out = class_weight < 0.00001
-    pred[:, mask_out] = -float('inf')
+    if class_weight is not None:
+        mask_out = class_weight < 0.00001
+        pred[:, mask_out] = -float('inf')
     loss = F.cross_entropy(
         pred,
         label,

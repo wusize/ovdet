@@ -164,9 +164,9 @@ class EnsembleBaronConvFCBBoxHead(BaronConvFCBBoxHead):
                                    num_classes=self.num_classes,
                                    score_per_cls=rcnn_test_cfg is None)[0]
 
-        return self.__predict_by_single_feat(roi, cls_score,
-                                             bbox_pred, img_meta,
-                                             rescale, rcnn_test_cfg)
+        return self._predict_after_normalize_cls_score(roi, cls_score,
+                                                       bbox_pred, img_meta,
+                                                       rescale, rcnn_test_cfg)
 
 
 @MODELS.register_module()

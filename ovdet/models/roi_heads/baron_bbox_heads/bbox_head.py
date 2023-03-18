@@ -197,18 +197,18 @@ class BaronBBoxHead(BBoxHead):
             scores = F.softmax(
                 cls_score, dim=-1) if cls_score is not None else None
 
-        return self.__predict_by_single_feat(roi, scores,
-                                             bbox_pred, img_meta,
-                                             rescale, rcnn_test_cfg)
+        return self._predict_after_normalize_cls_score(roi, scores,
+                                                       bbox_pred, img_meta,
+                                                       rescale, rcnn_test_cfg)
 
-    def __predict_by_single_feat(self,
-                                 roi: Tensor,
-                                 scores: Tensor,
-                                 bbox_pred: Tensor,
-                                 img_meta: dict,
-                                 rescale: bool = False,
-                                 rcnn_test_cfg: Optional[ConfigDict] = None
-                                 ):
+    def _predict_after_normalize_cls_score(self,
+                                           roi: Tensor,
+                                           scores: Tensor,
+                                           bbox_pred: Tensor,
+                                           img_meta: dict,
+                                           rescale: bool = False,
+                                           rcnn_test_cfg: Optional[ConfigDict] = None
+                                           ):
         results = InstanceData()
         img_shape = img_meta['img_shape']
         num_rois = roi.size(0)
