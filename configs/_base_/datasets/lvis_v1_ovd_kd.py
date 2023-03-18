@@ -21,7 +21,7 @@ det_pipeline = [
 ]
 ovd_pipeline = [
     dict(type='LoadImageFromFile', file_client_args=file_client_args),
-    dict(type='LoadAnnotations', with_bbox=True, with_mask=True),
+    dict(type='LoadAnnotations', with_bbox=True),
     dict(
         type='RandomChoiceResize',
         scales=[(1333, 640), (1333, 672), (1333, 704), (1333, 736),
