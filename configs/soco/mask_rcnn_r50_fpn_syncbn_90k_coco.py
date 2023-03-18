@@ -29,3 +29,6 @@ optim_wrapper = dict(
     clip_grad=dict(max_norm=35, norm_type=2),
 )
 load_from = 'checkpoints/res50_fpn_soco_star_400.pth'
+train_dataloader = dict(
+    sampler=dict(type='InfiniteSampler'),
+)
