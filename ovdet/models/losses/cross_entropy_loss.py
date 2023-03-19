@@ -14,7 +14,7 @@ def binary_cross_entropy(pred,
                          avg_factor=None,
                          class_weight=None,
                          ignore_index=-100,
-                         avg_non_ignore=False):
+                         avg_non_ignore=False, **kwargs):
     ignore_index = -100 if ignore_index is None else ignore_index
 
     if pred.dim() != label.dim():
@@ -54,13 +54,16 @@ def cross_entropy(pred,
                   avg_factor=None,
                   class_weight=None,
                   ignore_index=-100,
-                  avg_non_ignore=False):
+                  avg_non_ignore=False,
+                  ignore_bg=False):
     # The default value of ignore_index is the same as F.cross_entropy
     ignore_index = -100 if ignore_index is None else ignore_index
     # element-wise losses
     if class_weight is not None:
         mask_out = class_weight < 0.00001
         pred[:, mask_out] = -float('inf')
+        if ignore_bg:
+            class_weight[-1] = 0.0
     loss = F.cross_entropy(
         pred,
         label,
@@ -85,7 +88,7 @@ def cross_entropy(pred,
 
 @MODELS.register_module()
 class CustomCrossEntropyLoss(CrossEntropyLoss):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, ignore_bg=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.use_sigmoid:
             del self.cls_criterion
@@ -97,3 +100,36 @@ class CustomCrossEntropyLoss(CrossEntropyLoss):
         if isinstance(self.class_weight, str):
             cat_freq = load_class_freq(self.class_weight, min_count=0)
             self.class_weight = (cat_freq > 0.0).float().tolist() + [1.0]
+        self.ignore_bg = ignore_bg
+
+    def forward(self,
+                cls_score,
+                label,
+                weight=None,
+                avg_factor=None,
+                reduction_override=None,
+                ignore_index=None,
+                **kwargs):
+        assert reduction_override in (None, 'none', 'mean', 'sum')
+        reduction = (
+            reduction_override if reduction_override else self.reduction)
+        if ignore_index is None:
+            ignore_index = self.ignore_index
+
+        if self.class_weight is not None:
+            class_weight = cls_score.new_tensor(
+                self.class_weight, device=cls_score.device)
+        else:
+            class_weight = None
+        loss_cls = self.loss_weight * self.cls_criterion(
+            cls_score,
+            label,
+            weight,
+            class_weight=class_weight,
+            reduction=reduction,
+            avg_factor=avg_factor,
+            ignore_index=ignore_index,
+            avg_non_ignore=self.avg_non_ignore,
+            ignore_bg=self.ignore_bg,
+            **kwargs)
+        return loss_cls
