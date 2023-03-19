@@ -10,6 +10,7 @@ from ovdet.utils import multi_apply
 from .baron_base import BaronBase
 from .utils import repeat_crops_and_get_att_mask
 from .neighborhood_sampling import NeighborhoodSampling
+from .boxes_cache import BoxesCache
 
 
 def process_sampling_result_per_image(sampling_result, device):
@@ -54,6 +55,7 @@ class BaronKD(BaronBase):
     def __init__(self, bag_weight, single_weight, use_attn_mask, bag_temp, single_temp,
                  use_gt,
                  clip_data_preprocessor,
+                 boxes_cache=None,
                  **kwargs):
         super(BaronKD, self).__init__(**kwargs)
         self.neighborhood_sampling = NeighborhoodSampling(**self.sampling_cfg)
@@ -64,6 +66,13 @@ class BaronKD(BaronBase):
         self.single_weight = single_weight
         self.use_gt = use_gt
         self.clip_data_preprocessor = MODELS.build(clip_data_preprocessor)
+        if boxes_cache is not None:
+            boxes_cache.update(num_proposals=self.sampling_cfg['topk'],
+                               nms_thr=self.sampling_cfg['nms_thr'],
+                               score_thr=self.sampling_cfg['objectness_thr'])
+            self.boxes_cache = BoxesCache(**boxes_cache)
+        else:
+            self.boxes_cache = None
 
     def _sample_on_topk(self, topk_proposals):
         img_shape = topk_proposals.img_shape
@@ -74,7 +83,7 @@ class BaronKD(BaronBase):
         if len(topk_proposals) == 0:
             topk_proposals = InstanceData(bboxes=image_box[None],
                                           scores=torch.tensor([1.0], dtype=device),
-                                          metainfo=dict(img_shape=img_shape))
+                                          metainfo=topk_proposals.metainfo.copy())
 
         nmsed_proposals = self.preprocess_proposals(topk_proposals,
                                                     image_box[None],
@@ -82,6 +91,8 @@ class BaronKD(BaronBase):
                                                     self.sampling_cfg['area_ratio_thr'],
                                                     self.sampling_cfg['objectness_thr'],
                                                     self.sampling_cfg['nms_thr'])
+        if self.boxes_cache is not None:
+            nmsed_proposals = self.boxes_cache(nmsed_proposals)
         func = self.neighborhood_sampling.sample
         boxes = nmsed_proposals.bboxes.tolist()
         groups_per_proposal, normed_boxes, spanned_boxes, box_ids = \
@@ -111,8 +122,8 @@ class BaronKD(BaronBase):
         proposal_scores = proposals.scores
         gt_scores = torch.ones_like(gt_boxes[:, 0])
 
-        return InstanceData(bboxes=torch.cat([proposal_bboxes, gt_boxes]),
-                            scores=torch.cat([proposal_scores, gt_scores]),
+        return InstanceData(bboxes=torch.cat([gt_boxes, proposal_bboxes]),
+                            scores=torch.cat([gt_scores, proposal_scores]),
                             metainfo=proposals.metainfo)
 
     def sample(self, rpn_results, batch_data_sample, **kwargs):
@@ -122,8 +133,6 @@ class BaronKD(BaronBase):
             topk_proposals = self._add_gt_boxes(topk_proposals,
                                                 batch_data_sample.gt_instances.bboxes)
         sampling_result = self._sample_on_topk(topk_proposals)
-        sampling_result.set_field(name='img_id', value=batch_data_sample.img_id,
-                                  field_type='metainfo', dtype=None)
 
         return sampling_result
 

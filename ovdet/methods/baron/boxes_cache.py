@@ -1,8 +1,15 @@
 import torch
 import json
 import torch.nn as nn
+from mmcv.ops import nms
+from mmdet.structures.bbox import scale_boxes, bbox_flip    # todo consider crop
+from mmengine.structures import InstanceData
+import torch.distributed as dist
+
+
 class BoxesCache(nn.Module):
-    def __init__(self, json_path, num_proposals, nms_thr=0.1, save=False):
+    def __init__(self, json_path, start_iter=10000,
+                 num_proposals=100, nms_thr=0.1, score_thr=0.85, save=False):
         super(BoxesCache, self).__init__()
         with open(json_path, 'r') as f:
             images_info = json.load(f)['images']
@@ -12,69 +19,74 @@ class BoxesCache(nn.Module):
         self.register_buffer("boxes", boxes, persistent=save)
         self.num_proposals = num_proposals
         self.nms_thr = nms_thr
+        self.score_thr = score_thr
+        self.register_buffer("iter", torch.tensor(0, dtype=torch.long),
+                             persistent=False)
+        self.start_iter = start_iter
+
+    def forward(self, proposals):
+        return self.update(proposals)
 
     @torch.no_grad()
-    def update(self, image_info, proposals, score_thr):
+    def update(self, proposals, ):
+        self.iter.data += 1
+        if self.iter < self.start_iter:
+            return proposals
         nms_thr = self.nms_thr
         # TODO: pull cached boxes from all devices
-        image_id = image_info['image_id']
+        image_id = proposals.img_id
+
+        bboxes = proposals.bboxes
+        scores = proposals.scores
+
+        scale_factor = proposals.scale_factor
+        flip = proposals.flip
+        flip_direction = proposals.flip_direction
+        img_shape = proposals.img_shape
+
         if image_id not in self.image_id2ordered_id:
             return proposals
         ordered_id = self.image_id2ordered_id[image_id]
-        image_boxes_cache = self.boxes[ordered_id]
-        device = image_boxes_cache.device
+        cached_bboxes = self.boxes[ordered_id]
+        cached_scores = cached_bboxes[:, -1]
 
-        # TODO: Transform to current size
-        transforms = image_info['transforms']
-        cur_h, cur_w = image_info['image_size']
-        cached_boxes = Boxes(torch.from_numpy(
-            transforms.apply_box(image_boxes_cache[:, :4].cpu())).to(device))
-        # check if in the transformed image
-        cur_image_box = torch.tensor([[0., 0., cur_w, cur_h]]).to(device)
-        iof = pairwise_ioa(Boxes(cur_image_box), cached_boxes)
-        iof[iof < 0.3] = 0.0      # not in the current image
-        cached_box_scores = iof.view(-1) * image_boxes_cache[:, 4]
-        cached_boxes.clip((cur_h, cur_w))   # clip out of bound areas
+        scaled_cached_bboxes = scale_boxes(cached_bboxes[:, :4], scale_factor)
+        flipped_cached_bboxes = bbox_flip(scaled_cached_bboxes, img_shape, flip_direction) \
+            if flip else scaled_cached_bboxes
 
-        proposal_boxes = proposals.proposal_boxes.tensor
-        proposal_scores = proposals.objectness_logits.sigmoid()
+        merged_boxes = torch.cat([flipped_cached_bboxes, bboxes])
+        merged_scores = torch.cat([cached_scores, scores])
 
-        merged_boxes = torch.cat([cached_boxes.tensor, proposal_boxes])
-        merged_scores = torch.cat([cached_box_scores, proposal_scores])
-
-        score_kept = merged_scores > score_thr
+        score_kept = merged_scores > self.score_thr
         if score_kept.sum() == 0:
-            score_kept = [0]
+            score_kept = merged_scores.argmax().view(1)
 
         merged_boxes = merged_boxes[score_kept]
         merged_scores = merged_scores[score_kept]
 
-        nmsed_kept = nms(merged_boxes, merged_scores, nms_thr)
+        _, nmsed_kept = nms(merged_boxes, merged_scores, nms_thr)
 
         kept_boxes = merged_boxes[nmsed_kept]
         kept_scores = merged_scores[nmsed_kept]
 
-        out = Instances(image_size=proposals.image_size,
-                        proposal_boxes=Boxes(kept_boxes),
-                        objectness_logits=inverse_sigmoid(kept_scores))
-        if not self.training:
-            return out
-        # TODO: transform to the original size
-        proposal_boxes = torch.from_numpy(
-            transforms.inverse().apply_box(
-                proposal_boxes.cpu())
-        ).to(device)
+        out = InstanceData(bboxes=kept_boxes,
+                           scores=kept_scores,
+                           metainfo=proposals.metainfo)
 
-        merged_boxes = torch.cat([image_boxes_cache[:, :4], proposal_boxes])
-        merged_scores = torch.cat([image_boxes_cache[:, 4], proposal_scores])
-        score_kept = merged_scores > score_thr
+        # TODO: transform to the original size
+        flipped_bboxes = bbox_flip(bboxes, img_shape, flip_direction) \
+            if flip else bboxes
+        scaled_back_bboxes = scale_boxes(flipped_bboxes, [1 / s for s in scale_factor])
+        merged_boxes = torch.cat([cached_bboxes[:, :4], scaled_back_bboxes])
+        merged_scores = torch.cat([cached_scores, scores])
+        score_kept = merged_scores > self.score_thr
         if score_kept.sum() == 0:
-            score_kept = [0]
+            score_kept = merged_scores.argmax().view(1)
 
         merged_boxes = merged_boxes[score_kept]
         merged_scores = merged_scores[score_kept]
 
-        nmsed_kept = nms(merged_boxes, merged_scores, nms_thr)
+        _, nmsed_kept = nms(merged_boxes, merged_scores, nms_thr)
 
         kept_boxes = merged_boxes[nmsed_kept]
         kept_scores = merged_scores[nmsed_kept]
@@ -87,9 +99,33 @@ class BoxesCache(nn.Module):
         update_cache_to_sync[:num_update, :5] = update_cache
 
         # sync for updates from other devices
-        update_cache = comm.all_gather(update_cache_to_sync)
+        update_cache = self.sync_multiple_gpus(update_cache_to_sync)
         for update_cache_ in update_cache:
             ordered_id_ = int(update_cache_[0, -1].item())
             self.boxes[ordered_id_] = update_cache_[:, :5].to(device)  # update
 
         return out
+
+    @staticmethod
+    def sync_multiple_gpus(tensor):
+        """
+        Performs all_gather operation on the provided tensors.
+        *** Warning ***: torch.distributed.all_gather has no gradient.
+        """
+        if get_world_size() == 1:
+            return [tensor]
+        with torch.no_grad():
+            tensors_gather = [
+                torch.ones_like(tensor) for _ in range(torch.distributed.get_world_size())
+            ]
+            torch.distributed.all_gather(tensors_gather, tensor, async_op=False)
+
+        return tensors_gather
+
+
+def get_world_size() -> int:
+    if not dist.is_available():
+        return 1
+    if not dist.is_initialized():
+        return 1
+    return dist.get_world_size()

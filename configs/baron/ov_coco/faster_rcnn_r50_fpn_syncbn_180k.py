@@ -52,6 +52,7 @@ model = dict(
             reg_predictor_cfg=reg_layer,
             reg_class_agnostic=True,
             cls_bias=None,
+            num_words=6,
             cls_temp=50.0,
             cls_embeddings_path='data/metadata/coco_clip_hand_craft_attn12.npy',
             bg_embedding='learn',
