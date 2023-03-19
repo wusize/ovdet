@@ -164,7 +164,6 @@ class BaronKD(BaronBase):
 
     def get_losses(self, pseudo_words, sampling_results, clip_model, images,
                    *args, **kwargs):
-        clip_model.eval()
         image_ids = [res.img_id for res in sampling_results]
         device = pseudo_words.device
         # Note: perms = seq
