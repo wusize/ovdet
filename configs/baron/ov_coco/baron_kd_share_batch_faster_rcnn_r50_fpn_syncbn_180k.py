@@ -1,21 +1,5 @@
 _base_ = './faster_rcnn_r50_fpn_syncbn_180k.py'
 
-clip_cfg = dict(          # ViT-B/32
-    image_encoder=dict(
-        type='CLIPViT',
-        input_resolution=224,
-        patch_size=32,
-        width=768,
-        layers=12,
-        heads=12,
-        output_dim=512,
-        init_cfg=dict(
-            type='Pretrained',
-            prefix='visual',
-            checkpoint='checkpoints/clip_vitb32.pth')
-    ),
-)
-
 ovd_cfg = dict(type='BaronKD',
                boxes_cache=dict(json_path='data/coco/wusize/instances_val2017_base.json',
                                 start_iter=20000, ),
@@ -52,7 +36,22 @@ ovd_cfg = dict(type='BaronKD',
 model = dict(
     batch2ovd=dict(det_batch='baron_kd'),    # share with the det_batch
     roi_head=dict(
-        clip_cfg=clip_cfg,
+        clip_cfg=dict(          # ViT-B/32
+            image_encoder=dict(
+                _delete_=True,
+                type='CLIPViT',
+                input_resolution=224,
+                patch_size=32,
+                width=768,
+                layers=12,
+                heads=12,
+                output_dim=512,
+                init_cfg=dict(
+                    type='Pretrained',
+                    prefix='visual',
+                    checkpoint='checkpoints/clip_vitb32.pth')
+            ),
+        ),
         ovd_cfg=dict(baron_kd=ovd_cfg),
         bbox_head=dict(num_words=6)
     ),
