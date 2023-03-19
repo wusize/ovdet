@@ -49,6 +49,8 @@ clip_cfg = dict(          # ViT-B/32
 )
 
 ovd_cfg = dict(type='BaronKD',
+               boxes_cache=dict(json_path='data/coco/wusize/instances_val2017_base.json',
+                                start_iter=20000,),
                use_gt=True,
                bag_weight=1.0, single_weight=0.1, use_attn_mask=False, bag_temp=30.0, single_temp=50.0,
                clip_data_preprocessor=dict(
@@ -59,7 +61,7 @@ ovd_cfg = dict(type='BaronKD',
                    std=[68.5005327 / 58.395,
                         66.6321579 / 57.12,
                         70.32316305 / 57.375]),
-               num_words=4, word_dim=512, words_drop_ratio=0.5,
+               num_words=6, word_dim=512, words_drop_ratio=0.5,
                queue_cfg=dict(names=['clip_text_features', 'clip_image_features',
                                      'clip_word_features', 'clip_patch_features'],
                               lengths=[1024] * 4,
@@ -108,6 +110,7 @@ model = dict(
             reg_class_agnostic=True,
             cls_bias=None,
             cls_temp=50.0,
+            num_words=6,
             cls_embeddings_path='data/metadata/coco_clip_hand_craft_attn12.npy',
             bg_embedding='learn',
             use_attn12_output=True,
