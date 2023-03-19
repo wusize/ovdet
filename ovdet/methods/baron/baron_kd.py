@@ -89,12 +89,11 @@ class BaronKD(BaronBase):
                         [img_shape] * len(nmsed_proposals))   # can be time-consuming
         new_boxes = torch.cat([perm for single_proposal in groups_per_proposal
                                for single_group in single_proposal for perm in single_group], dim=0).to(device)
-        sampled_instances = InstanceData(
-            bboxes=new_boxes,
-            metainfo=dict(normed_boxes=normed_boxes,
-                          spanned_boxes=spanned_boxes,
-                          box_ids=box_ids,
-                          img_shape=img_shape))
+        metainfo = topk_proposals.metainfo.copy()
+        metainfo.update(normed_boxes=normed_boxes,
+                        spanned_boxes=spanned_boxes,
+                        box_ids=box_ids)
+        sampled_instances = InstanceData(bboxes=new_boxes, metainfo=metainfo)
 
         return sampled_instances
 
@@ -117,9 +116,7 @@ class BaronKD(BaronBase):
                             metainfo=proposals.metainfo)
 
     def sample(self, rpn_results, batch_data_sample, **kwargs):
-        img_shape = batch_data_sample.img_shape     # h, w
-        rpn_results.set_field(name='img_shape', value=img_shape,
-                              field_type='metainfo', dtype=None)
+        rpn_results.set_metainfo(batch_data_sample.metainfo)
         topk_proposals = self._sample_topk_proposals(rpn_results)
         if self.use_gt:
             topk_proposals = self._add_gt_boxes(topk_proposals,
