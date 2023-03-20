@@ -49,7 +49,7 @@ clip_cfg = dict(          # ViT-B/32
 )
 
 ovd_cfg = dict(type='BaronKD',
-               boxes_cache=dict(json_path='data/coco/wusize/instances_val2017_base.json',
+               boxes_cache=dict(json_path='data/coco/wusize/instances_train2017_base.json',
                                 start_iter=20000,),
                use_gt=True,
                bag_weight=1.0, single_weight=0.1, use_attn_mask=False, bag_temp=30.0, single_temp=50.0,
