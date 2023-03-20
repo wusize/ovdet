@@ -93,7 +93,7 @@ class BoxesCache(nn.Module):
 
         num_update = min(self.num_proposals, len(kept_boxes))
         device = kept_scores.device
-        update_cache_to_sync = torch.zeros(self.num_proposals, 6)     # [x,y,x,y,s,order_id]
+        update_cache_to_sync = torch.zeros(self.num_proposals, 6, device=device)     # [x,y,x,y,s,order_id]
         update_cache_to_sync[:, -1] = float(ordered_id)    # ordered_id
         update_cache = torch.cat([kept_boxes, kept_scores[:, None]], dim=1)[:num_update]
         update_cache_to_sync[:num_update, :5] = update_cache
