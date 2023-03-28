@@ -53,7 +53,7 @@ This project is released under the [Apache 2.0 license](LICENSE).
 ### Data preparation
 
 Prepare data following [MMDetection](https://github.com/open-mmlab/mmdetection). 
-Obtain the json files for OV-COCO from [GoogleDrive](https://github.com/open-mmlab/mmdetection) and put them
+Obtain the json files for OV-COCO from [GoogleDrive](https://drive.google.com/drive/folders/1O6rt6WN2ePPg6j-wVgF89T7ql2HiuRIG?usp=sharing) and put them
 under `data/coco/wusize`
 The data structure looks like below:
 
