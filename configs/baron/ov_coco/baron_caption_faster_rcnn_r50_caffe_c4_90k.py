@@ -37,7 +37,7 @@ clip_cfg = dict(          # ViT-B/32
 )
 
 ovd_cfg = dict(type='BaronCaption',
-               loss_weight=15.0, norm_temp=30.0, max_caps=5,
+               loss_weight=10.0, norm_temp=30.0, max_caps=5,
                num_words=4, word_dim=512,
                words_drop_ratio=0.5,
                use_pe=True, queue_cfg=dict(names=['clip_cap_text_features',
@@ -74,15 +74,15 @@ model = dict(
             scale_major=False,      # align with detectron2
         )
     ),
-    backbone=dict(
-        init_cfg=dict(
-            checkpoint='checkpoints/resnet50_msra-5891d200.pth')),
+    # backbone=dict(
+    #     init_cfg=dict(
+    #         checkpoint='checkpoints/resnet50_msra-5891d200.pth')),
     batch2ovd=dict(caption_batch='baron_caption'),
     roi_head=dict(
         type='OVDStandardRoIHead',
-        shared_head=dict(
-            init_cfg=dict(
-                checkpoint='checkpoints/resnet50_msra-5891d200.pth')),
+        # shared_head=dict(
+        #     init_cfg=dict(
+        #         checkpoint='checkpoints/resnet50_msra-5891d200.pth')),
         clip_cfg=clip_cfg,
         ovd_cfg=dict(baron_caption=ovd_cfg),
         bbox_head=dict(

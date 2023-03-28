@@ -44,14 +44,14 @@ model = dict(
             scale_major=False,      # align with detectron2
         )
     ),
-    backbone=dict(
-        init_cfg=dict(
-            checkpoint='checkpoints/resnet50_msra-5891d200.pth')),
+    # backbone=dict(
+    #     init_cfg=dict(
+    #         checkpoint='checkpoints/resnet50_msra-5891d200.pth')),
     roi_head=dict(
         type='OVDStandardRoIHead',
-        shared_head=dict(
-            init_cfg=dict(
-                checkpoint='checkpoints/resnet50_msra-5891d200.pth')),
+        # shared_head=dict(
+        #     init_cfg=dict(
+        #         checkpoint='checkpoints/resnet50_msra-5891d200.pth')),
         clip_cfg=clip_cfg,
         bbox_head=dict(
             type='BaronBBoxHead',

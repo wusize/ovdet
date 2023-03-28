@@ -18,22 +18,12 @@ The model checkpoints and logs will be released soon.
 
 ### Open Vocabulary COCO
 
-| Backbone | Method | Supervision | Novel AP50 | Config | Download |
-| :---: | :---: | :---: | :---: | :---: | :---: |
-| R-50-FPN | BARON  | CLIP | 34.0 |[config](configs/baron/) | [model]() &#124;  [log]() |
-| R-50-C4  | BARON  | COCO Caption | 33.1 |[config](configs/baron/) | [model]() &#124;  [log]() |
-| R-50-C4  | BARON *| COCO Caption + CLIP | 42.7|[config](configs/baron/) | [model]() &#124;  [log]() |
+| Backbone | Method |     Supervision     | Novel AP50 | Config | Download |
+|:--------:| :---: |:-------------------:|:-----:| :---: | :---: |
+| R-50-C4  | BARON  |        CLIP         |       |[config](configs/baron/ov_coco/baron_caption_faster_rcnn_r50_caffe_c4_90k.py) | [model]() &#124;  [log]() |
+| R-50-C4  | BARON  | CLIP (share branch) |       |[config](configs/baron/ov_coco/baron_kd_share_batch_faster_rcnn_r50_caffe_c4_90k.py) | [model]() &#124;  [log]() |
+| R-50-C4  | BARON  |    COCO Caption     |       |[config](configs/baron/ov_coco/baron_caption_faster_rcnn_r50_caffe_c4_90k.py) | [model]() &#124;  [log]() |
 
-Note:
-\* indicates using extra proposals
-
-### Open Vocabulary LVIS
-
-| Backbone | Method | Branch Ensembel | Learned Prompt | Mask AP_novel | Mask AP | Config | Download |
-| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| R-50-FPN  | BARON| N | N | 18.0 | 25.1 |[config](configs/baron/) | [model]() &#124;  [log]() |
-| R-50-FPN  | BARON| Y | N | 19.2 | 26.5 |[config](configs/baron/) | [model]() &#124;  [log]() |
-| R-50-FPN  | BARON| Y | Y | 22.6 | 27.6 |[config](configs/baron/) | [model]() &#124;  [log]() |
 
 
 ## Installation
@@ -63,15 +53,20 @@ This project is released under the [Apache 2.0 license](LICENSE).
 ### Data preparation
 
 Prepare data following [MMDetection](https://github.com/open-mmlab/mmdetection). 
-The preparation of OV-COCO and OV-LVIS is coming soon.
+Obtain the json files for OV-COCO from [GoogleDrive](https://github.com/open-mmlab/mmdetection) and put them
+under `data/coco/wusize`
 The data structure looks like below:
 
 ```text
 data/
 ├── coco
 │   ├── annotations
-│   │   ├── instance_{train,val}2017.json
-│   │   ├── image_info_test-dev2017.json  # for test-dev submissions
+│   │   ├── instances_{train,val}2017.json
+│   ├── wusize
+│   │   ├── instances_train2017_base.json
+│   │   ├── instances_val2017_base.json
+│   │   ├── instances_val2017_novel.json
+│   │   ├── captions_train2017_tags_allcaps.json
 │   ├── train2017
 │   ├── val2017
 │   ├── test2017
