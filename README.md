@@ -58,6 +58,8 @@ under `data/coco/wusize`
 The data structure looks like below:
 
 ```text
+checkpoints/
+├── clip_vitb32.pth
 data/
 ├── coco
 │   ├── annotations
@@ -72,6 +74,11 @@ data/
 │   ├── test2017
 
 ```
+
+### CLIP checkpoints
+Obtain the checkpoint of ViT-B-32 from 
+[GoogleDrive](https://drive.google.com/file/d/1ilxBhjb3JXNDar8lKRQ9GA4hTmjxADfu/view?usp=sharing) and put it
+under `checkpoints`.
 
 ### Training and testing
 
