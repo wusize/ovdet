@@ -1,7 +1,7 @@
 _base_ = [
     '../../_base_/models/faster-rcnn_r50_fpn_syncbn.py',
     '../../_base_/datasets/coco_ovd_kd_ms.py',
-    '../../_base_/schedules/schedule_180k.py',
+    '../../_base_/schedules/schedule_90k.py',
     '../../_base_/iter_based_runtime.py'
 ]
 class_weight = [1, 1, 1, 1, 0, 0, 1, 1, 1, 0,
@@ -124,8 +124,8 @@ model = dict(
 
 # optimizer
 optim_wrapper = dict(
-    type='AmpOptimWrapper',        # amp training
-    optimizer=dict(type='SGD', lr=0.02, momentum=0.9, weight_decay=0.000025),
-    clip_grad=dict(max_norm=35, norm_type=2),
+    type='AmpOptimWrapper',        # amp training, use 8x2 gpus
+    optimizer=dict(type='SGD', lr=0.02*2, momentum=0.9, weight_decay=0.000025),
+    # clip_grad=dict(max_norm=35, norm_type=2),
 )
 load_from = 'checkpoints/res50_fpn_soco_star_400.pth'

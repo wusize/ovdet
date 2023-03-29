@@ -1,25 +1,19 @@
-_base_ = './faster_rcnn_r50_caffe_c4_90k.py'
-class_weight = [1, 1, 1, 1, 0, 0, 1, 1, 1, 0,
-                0, 0, 0, 1, 1, 0, 0, 1, 1, 0,
-                0, 1, 1, 1, 1, 0, 1, 0, 1, 1,
-                1, 0, 0, 1, 0, 0, 0, 1, 0, 1,
-                0, 0, 1, 0, 1, 1, 1, 1, 1, 1,
-                1, 1, 0, 1, 1, 0, 1, 0, 0, 1,
-                0, 1, 1, 1, 1, 1, 0, 0, 1, 1,
-                1, 0, 1, 1, 1, 1, 0, 0, 0, 1] + [1]
+_base_ = './faster_rcnn_r50_fpn_syncbn_90kx2.py'
+
 ovd_cfg = dict(type='BaronKD',
-               boxes_cache=None,
+               boxes_cache=dict(json_path='data/coco/wusize/instances_train2017_base.json',
+                                start_iter=20000, ),
                use_gt=True,
-               bag_weight=1.0, single_weight=0.1, use_attn_mask=False,
-               bag_temp=30.0, single_temp=50.0,
+               bag_weight=1.0, single_weight=0.1, use_attn_mask=False, bag_temp=30.0, single_temp=50.0,
                clip_data_preprocessor=dict(
                    type='ImgDataPreprocessor',
-                   bgr_to_rgb=True,
-                   mean=[122.7709383 - 123.675,
-                         116.7460125 - 116.28,
-                         104.09373615 - 103.53],
-                   std=[68.5005327, 66.6321579, 70.32316305]),
-               num_words=4, word_dim=512, words_drop_ratio=0.5,
+                   mean=[(122.7709383 - 123.675) / 58.395,
+                         (116.7460125 - 116.28) / 57.12,
+                         (104.09373615 - 103.53) / 57.375],
+                   std=[68.5005327 / 58.395,
+                        66.6321579 / 57.12,
+                        70.32316305 / 57.375]),
+               num_words=6, word_dim=512, words_drop_ratio=0.5,
                queue_cfg=dict(names=['clip_text_features', 'clip_image_features',
                                      'clip_word_features', 'clip_patch_features'],
                               lengths=[1024] * 4,
@@ -59,15 +53,6 @@ model = dict(
             ),
         ),
         ovd_cfg=dict(baron_kd=ovd_cfg),
-        bbox_head=dict(num_words=4,
-                       cls_bias=None,
-                       cls_temp=50.0,
-                       bg_embedding='learn',
-                       loss_cls=dict(
-                           type='CustomCrossEntropyLoss',
-                           use_sigmoid=False,
-                           class_weight=class_weight),
-                       )
-
+        bbox_head=dict(num_words=6)
     ),
 )

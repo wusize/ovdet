@@ -1,7 +1,7 @@
 _base_ = [
     '../../_base_/models/faster-rcnn_r50_fpn_syncbn.py',
     '../../_base_/datasets/coco_ovd_base_ms.py',
-    '../../_base_/schedules/schedule_180k.py',
+    '../../_base_/schedules/schedule_90k.py',
     '../../_base_/iter_based_runtime.py'
 ]
 class_weight = [1, 1, 1, 1, 0, 0, 1, 1, 1, 0,
@@ -52,6 +52,7 @@ model = dict(
             reg_predictor_cfg=reg_layer,
             reg_class_agnostic=True,
             cls_bias=None,
+            num_words=6,
             cls_temp=50.0,
             cls_embeddings_path='data/metadata/coco_clip_hand_craft_attn12.npy',
             bg_embedding='learn',
@@ -67,9 +68,7 @@ model = dict(
 # optimizer
 optim_wrapper = dict(
     type='AmpOptimWrapper',        # amp training
-    optimizer=dict(type='SGD', lr=0.02, momentum=0.9, weight_decay=0.000025),
-    clip_grad=dict(max_norm=35, norm_type=2),
-    constructor='CustomOptimWrapperConstructor',
-    paramwise_cfg=dict(reduce_param_groups=True),
+    optimizer=dict(type='SGD', lr=0.02*2, momentum=0.9, weight_decay=0.000025),
+    # clip_grad=dict(max_norm=35, norm_type=2),
 )
 load_from = 'checkpoints/res50_fpn_soco_star_400.pth'
