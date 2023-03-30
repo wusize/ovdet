@@ -6,6 +6,7 @@ _base_ = [
 ]
 
 model = dict(
+    neck=dict(norm_cfg=dict(type='BN'),),
     rpn_head=dict(
         type='DetachRPNHead',
         anchor_generator=dict(
