@@ -4,6 +4,7 @@ from typing import Optional, Tuple, Union
 import torch.nn as nn
 from mmcv.cnn import ConvModule
 from mmengine.config import ConfigDict
+from torch.nn.modules.batchnorm import _BatchNorm
 from torch import Tensor
 
 from mmdet.registry import MODELS
@@ -34,9 +35,11 @@ class BaronConvFCBBoxHead(BaronBBoxHead):
                  conv_cfg: Optional[Union[dict, ConfigDict]] = None,
                  norm_cfg: Optional[Union[dict, ConfigDict]] = None,
                  init_cfg: Optional[Union[dict, ConfigDict]] = None,
+                 norm_eval: bool = False,
                  *args,
                  **kwargs) -> None:
         super().__init__(*args, init_cfg=init_cfg, **kwargs)
+        self.norm_eval = norm_eval
         assert (num_shared_convs + num_shared_fcs + num_cls_convs +
                 num_cls_fcs + num_reg_convs + num_reg_fcs > 0)
         if num_cls_convs > 0 or num_reg_convs > 0:
@@ -115,6 +118,16 @@ class BaronConvFCBBoxHead(BaronBBoxHead):
                         dict(name='reg_fcs')
                     ])
             ]
+
+    def train(self, mode=True):
+        """Convert the model into training mode while keep normalization layer
+        freezed."""
+        super(BaronConvFCBBoxHead, self).train(mode)
+        if mode and self.norm_eval:
+            for m in self.modules():
+                # trick: eval have effect on BatchNorm only
+                if isinstance(m, _BatchNorm):
+                    m.eval()
 
     def _add_conv_fc_branch(self,
                             num_branch_convs: int,
