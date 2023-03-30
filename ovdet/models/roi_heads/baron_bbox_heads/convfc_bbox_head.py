@@ -8,7 +8,6 @@ from torch.nn.modules.batchnorm import _BatchNorm
 from torch import Tensor
 
 from mmdet.registry import MODELS
-from mmengine.logging import print_log
 from .bbox_head import BaronBBoxHead
 
 
