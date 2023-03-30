@@ -8,6 +8,7 @@ from torch.nn.modules.batchnorm import _BatchNorm
 from torch import Tensor
 
 from mmdet.registry import MODELS
+from mmengine.logging import print_log
 from .bbox_head import BaronBBoxHead
 
 
@@ -124,6 +125,7 @@ class BaronConvFCBBoxHead(BaronBBoxHead):
         freezed."""
         super(BaronConvFCBBoxHead, self).train(mode)
         if mode and self.norm_eval:
+            print_log('Set the norm layers in bbox head to eval mode')
             for m in self.modules():
                 # trick: eval have effect on BatchNorm only
                 if isinstance(m, _BatchNorm):
