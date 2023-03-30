@@ -19,13 +19,13 @@ val_evaluator = [
     dict(
         type='CocoMetric',
         ann_file=data_root + 'wusize/instances_val2017_base.json',
-        metric='proposal',
+        metric='proposal_fast',
         prefix='Base',
         format_only=False),
     dict(
         type='CocoMetric',
         ann_file=data_root + 'wusize/instances_val2017_novel.json',
-        metric='proposal',
+        metric='proposal_fast',
         prefix='Novel',
         format_only=False)
 ]
