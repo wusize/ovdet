@@ -16,15 +16,15 @@ model = dict(
 data_root = 'data/coco/'
 val_evaluator = [
     dict(
-        type='proposal_fast',
+        type='CocoMetric',
         ann_file=data_root + 'wusize/instances_val2017_base.json',
-        metric='bbox',
+        metric='proposal',
         prefix='Base',
         format_only=False),
     dict(
-        type='proposal_fast',
+        type='CocoMetric',
         ann_file=data_root + 'wusize/instances_val2017_novel.json',
-        metric='bbox',
+        metric='proposal',
         prefix='Novel',
         format_only=False)
 ]
