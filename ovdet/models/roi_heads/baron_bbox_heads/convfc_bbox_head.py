@@ -125,7 +125,7 @@ class BaronConvFCBBoxHead(BaronBBoxHead):
         freezed."""
         super(BaronConvFCBBoxHead, self).train(mode)
         if mode and self.norm_eval:
-            print_log('Set the norm layers in bbox head to eval mode')
+            # print_log('Set the norm layers in bbox head to eval mode')
             for m in self.modules():
                 # trick: eval have effect on BatchNorm only
                 if isinstance(m, _BatchNorm):
