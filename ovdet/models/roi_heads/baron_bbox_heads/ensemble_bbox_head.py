@@ -1,6 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import torch
-from copy import deepcopy
 from ovdet.utils.misc import load_class_freq
 from .convfc_bbox_head import BaronConvFCBBoxHead
 import torch.nn.functional as F
@@ -10,22 +9,16 @@ from mmengine.config import ConfigDict
 from mmengine.structures import InstanceData
 from mmdet.models.utils import empty_instances
 from mmdet.registry import MODELS
-from mmengine.logging import print_log
 
 
 @MODELS.register_module()
 class EnsembleBaronConvFCBBoxHead(BaronConvFCBBoxHead):
     def __init__(self, ensemble_factor=2.0 / 3.0,
                  class_info='data/metadata/lvis_v1_train_cat_norare_info.json',
+                 kd=None,
                  transfer_factor=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if self.num_shared_convs > 0:
-            self.kd_shared_convs = deepcopy(self.shared_convs)
-        if self.num_shared_fcs > 0:
-            self.kd_shared_fcs = deepcopy(self.shared_fcs)
-        self.kd_cls_convs = deepcopy(self.cls_convs)
-        self.kd_cls_fcs = deepcopy(self.cls_fcs)
-        self.kd_fc_cls = deepcopy(self.fc_cls)
+        self.kd = MODELS.build(kd)
         self.ensemble_factor = ensemble_factor
         self.transfer_factor = transfer_factor
         assert (ensemble_factor is None) ^ (transfer_factor is None)
@@ -34,51 +27,12 @@ class EnsembleBaronConvFCBBoxHead(BaronConvFCBBoxHead):
             is_base = torch.cat([(class_cnt > 0.0).float(), torch.tensor([1.0])])
             self.register_buffer('is_base', is_base)
 
-    def init_weights(self):
-        super().init_weights()
-        # TODO: copy the params of the det branch to the kd branch
-        print_log('Copy the det branch to kd branch')
-        if self.num_shared_convs > 0:
-            self._copy_params(src=self.shared_convs, dst=self.kd_shared_convs)
-        if self.num_shared_fcs > 0:
-            self._copy_params(src=self.shared_fcs, dst=self.kd_shared_fcs)
-
-        self._copy_params(src=self.cls_convs, dst=self.kd_cls_convs)
-        self._copy_params(src=self.cls_fcs, dst=self.kd_cls_fcs)
-        self._copy_params(src=self.fc_cls, dst=self.kd_fc_cls)
-
     @staticmethod
     def _copy_params(src, dst):
         dst.load_state_dict(src.state_dict())
 
     def vision_to_language(self, x):
-        # shared part
-        if self.num_shared_convs > 0:
-            for conv in self.kd_shared_convs:
-                x = conv(x)
-
-        if self.num_shared_fcs > 0:
-            if self.with_avg_pool:
-                x = self.avg_pool(x)
-
-            x = x.flatten(1)
-
-            for fc in self.kd_shared_fcs:
-                x = self.relu(fc(x))
-        # separate branches
-        x_cls = x
-        for conv in self.kd_cls_convs:
-            x_cls = conv(x_cls)
-        if x_cls.dim() > 2:
-            if self.with_avg_pool:
-                x_cls = self.avg_pool(x_cls)
-            x_cls = x_cls.flatten(1)
-        for fc in self.kd_cls_fcs:
-            x_cls = self.relu(fc(x_cls))
-
-        pseudo_words = self.kd_fc_cls(x_cls).view(-1, self.num_words, self.word_dim)
-
-        return pseudo_words
+        return self.kd.vision_to_language(x)
 
     def forward(self, x, clip_model=None) -> tuple:
         """Forward features from the upstream network.

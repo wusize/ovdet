@@ -25,7 +25,7 @@ class BaronBBoxHead(BBoxHead):
                  words_drop_ratio=0.5,
                  test_cls_temp=None,  # 100.0 / 0.7,
                  cls_temp=50.0, cls_bias=None,
-                 cls_embeddings_path='', bg_embedding='zero',
+                 cls_embeddings_path=None, bg_embedding='zero',
                  use_attn12_output=False,
                  *args, **kwargs):
         super(BaronBBoxHead, self).__init__(*args, **kwargs)
@@ -51,24 +51,25 @@ class BaronBBoxHead(BBoxHead):
             assert self.loss_cls.use_sigmoid, \
                 "cls_bias only used for sigmoid logits"
             self.cls_bias = nn.Parameter(torch.ones(1) * cls_bias)
-        cls_embeddings = torch.from_numpy(
-            np.load(cls_embeddings_path)).float()
-        assert self.num_classes == cls_embeddings.shape[0]
-        self.register_buffer('cls_embeddings', cls_embeddings)
-        self.learn_bg = False
-        if bg_embedding == 'zero':
-            self.register_buffer('bg_embedding',
-                                 torch.zeros_like(cls_embeddings[:1]))
-        elif bg_embedding == 'learn':
-            self.bg_embedding = nn.Linear(1, cls_embeddings.shape[1])
-            self.init_cfg += [
-                dict(
-                    type='Xavier', distribution='uniform',
-                    override=dict(name='bg_embedding')),
-            ]
-            self.learn_bg = True
-        else:
-            raise ValueError(f"{bg_embedding} not supported.")
+        if cls_embeddings_path is not None:
+            cls_embeddings = torch.from_numpy(
+                np.load(cls_embeddings_path)).float()
+            assert self.num_classes == cls_embeddings.shape[0]
+            self.register_buffer('cls_embeddings', cls_embeddings)
+            self.learn_bg = False
+            if bg_embedding == 'zero':
+                self.register_buffer('bg_embedding',
+                                     torch.zeros_like(cls_embeddings[:1]))
+            elif bg_embedding == 'learn':
+                self.bg_embedding = nn.Linear(1, cls_embeddings.shape[1])
+                self.init_cfg += [
+                    dict(
+                        type='Xavier', distribution='uniform',
+                        override=dict(name='bg_embedding')),
+                ]
+                self.learn_bg = True
+            else:
+                raise ValueError(f"{bg_embedding} not supported.")
 
     def pred_cls_logits(self, pseudo_words, clip_model):
         text_encoder = clip_model.text_encoder
