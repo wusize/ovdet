@@ -39,12 +39,17 @@ class EnsembleBaronConvFCBBoxHead(BaronConvFCBBoxHead):
         # TODO: copy the params of the det branch to the kd branch
         print_log('Copy the det branch to kd branch')
         if self.num_shared_convs > 0:
-            self.kd_shared_convs = deepcopy(self.shared_convs)
+            self._copy_params(src=self.shared_convs, dst=self.kd_shared_convs)
         if self.num_shared_fcs > 0:
-            self.kd_shared_fcs = deepcopy(self.shared_fcs)
-        self.kd_cls_convs = deepcopy(self.cls_convs)
-        self.kd_cls_fcs = deepcopy(self.cls_fcs)
-        self.kd_fc_cls = deepcopy(self.fc_cls)
+            self._copy_params(src=self.shared_fcs, dst=self.kd_shared_fcs)
+
+        self._copy_params(src=self.cls_convs, dst=self.kd_cls_convs)
+        self._copy_params(src=self.cls_fcs, dst=self.kd_cls_fcs)
+        self._copy_params(src=self.fc_cls, dst=self.kd_fc_cls)
+
+    @staticmethod
+    def _copy_params(src, dst):
+        dst.load_state_dict(src.state_dict())
 
     def vision_to_language(self, x):
         # shared part
