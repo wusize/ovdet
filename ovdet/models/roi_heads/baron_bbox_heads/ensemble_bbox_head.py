@@ -10,6 +10,7 @@ from mmengine.config import ConfigDict
 from mmengine.structures import InstanceData
 from mmdet.models.utils import empty_instances
 from mmdet.registry import MODELS
+from mmengine.logging import print_log
 
 
 @MODELS.register_module()
@@ -32,6 +33,18 @@ class EnsembleBaronConvFCBBoxHead(BaronConvFCBBoxHead):
             class_cnt = load_class_freq(class_info, 1.0, min_count=0)  # to mask the novel classes
             is_base = torch.cat([(class_cnt > 0.0).float(), torch.tensor([1.0])])
             self.register_buffer('is_base', is_base)
+
+    def init_weights(self):
+        super().init_weights()
+        # TODO: copy the params of the det branch to the kd branch
+        print_log('Copy the det branch to kd branch')
+        if self.num_shared_convs > 0:
+            self.kd_shared_convs = deepcopy(self.shared_convs)
+        if self.num_shared_fcs > 0:
+            self.kd_shared_fcs = deepcopy(self.shared_fcs)
+        self.kd_cls_convs = deepcopy(self.cls_convs)
+        self.kd_cls_fcs = deepcopy(self.cls_fcs)
+        self.kd_fc_cls = deepcopy(self.fc_cls)
 
     def vision_to_language(self, x):
         # shared part

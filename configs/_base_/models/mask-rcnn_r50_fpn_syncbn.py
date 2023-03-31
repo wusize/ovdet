@@ -12,7 +12,8 @@ model = dict(
     roi_head=dict(
         bbox_head=dict(
             type='Shared4Conv1FCBBoxHead',
-            norm_cfg=norm_cfg,
+            norm_cfg=dict(type='BN', requires_grad=False),    # freeze the bn at bbox head
+            norm_eval=True,
             num_classes=80,
             reg_class_agnostic=True,
             loss_cls=dict(

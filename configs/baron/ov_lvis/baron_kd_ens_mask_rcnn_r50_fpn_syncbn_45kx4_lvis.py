@@ -1,4 +1,4 @@
-_base_ = './baron_kd_share_batch_mask_rcnn_r50_fpn_syncbn_180k_lvis.py'
+_base_ = './baron_kd_mask_rcnn_r50_fpn_syncbn_45kx4_lvis.py'
 
 model = dict(
     roi_head=dict(

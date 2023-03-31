@@ -1,7 +1,7 @@
 _base_ = [
     '../../_base_/models/mask-rcnn_r50_fpn_syncbn.py',
     '../../_base_/datasets/lvis_v1_ovd_base.py',
-    '../../_base_/schedules/schedule_180k.py',
+    '../../_base_/schedules/schedule_45k.py',
     '../../_base_/iter_based_runtime.py'
 ]
 class_weight = 'data/metadata/lvis_v1_train_cat_norare_info.json'
@@ -68,7 +68,7 @@ model = dict(
 # optimizer
 optim_wrapper = dict(
     type='AmpOptimWrapper',        # amp training
-    optimizer=dict(type='SGD', lr=0.02, momentum=0.9, weight_decay=0.000025),
+    optimizer=dict(type='SGD', lr=0.02 * 4, momentum=0.9, weight_decay=0.000025),
     clip_grad=dict(max_norm=35, norm_type=2),
 )
 load_from = 'checkpoints/res50_fpn_soco_star_400.pth'
