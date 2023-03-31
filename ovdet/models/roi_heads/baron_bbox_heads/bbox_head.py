@@ -35,7 +35,7 @@ class BaronBBoxHead(BBoxHead):
         self.words_drop_ratio = words_drop_ratio
         self.use_attn12_output = use_attn12_output
         assert self.with_cls
-        assert self.reg_class_agnostic
+        # assert self.reg_class_agnostic
         assert not self.custom_cls_channels
         del self.fc_cls
         self.test_cls_temp = cls_temp if test_cls_temp is None \
