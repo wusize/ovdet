@@ -9,7 +9,7 @@ import torch.distributed as dist
 
 class BoxesCache(nn.Module):
     def __init__(self, json_path, start_iter=10000,
-                 num_proposals=100, nms_thr=0.1, score_thr=0.85, save=False):
+                 num_proposals=300, nms_thr=0.1, score_thr=0.85, save=False):
         super(BoxesCache, self).__init__()
         with open(json_path, 'r') as f:
             images_info = json.load(f)['images']
