@@ -125,6 +125,6 @@ model = dict(
 optim_wrapper = dict(
     type='AmpOptimWrapper',        # amp training
     optimizer=dict(type='SGD', lr=0.02 * 4, momentum=0.9, weight_decay=0.000025),
-    clip_grad=dict(max_norm=35, norm_type=2),
+    clip_grad=dict(type='value', clip_value=1.0),
 )
 load_from = 'checkpoints/res50_fpn_soco_star_400.pth'
