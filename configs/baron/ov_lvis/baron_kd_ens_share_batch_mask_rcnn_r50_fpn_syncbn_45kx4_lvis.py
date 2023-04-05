@@ -6,8 +6,8 @@ kd = dict(
     fc_out_channels=1024,
     roi_feat_size=7,
     with_reg=False,
-    norm_cfg=dict(type='BN', requires_grad=False),    # freeze the bn at bbox head
-    norm_eval=True,
+    norm_cfg=dict(type='SyncBN', requires_grad=True),
+    norm_eval=False,
     init_cfg=dict(
         type='Pretrained',
         prefix='roi_head.bbox_head',
