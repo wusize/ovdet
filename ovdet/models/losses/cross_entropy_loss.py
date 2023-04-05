@@ -85,7 +85,7 @@ def cross_entropy(pred,
 
 @MODELS.register_module()
 class CustomCrossEntropyLoss(CrossEntropyLoss):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, bg_weight=1.0, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.use_sigmoid:
             del self.cls_criterion
@@ -96,4 +96,4 @@ class CustomCrossEntropyLoss(CrossEntropyLoss):
 
         if isinstance(self.class_weight, str):
             cat_freq = load_class_freq(self.class_weight, min_count=0)
-            self.class_weight = (cat_freq > 0.0).float().tolist() + [1.0]
+            self.class_weight = (cat_freq > 0.0).float().tolist() + [bg_weight]
