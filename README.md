@@ -37,6 +37,19 @@ This project is released under the [Apache 2.0 license](LICENSE).
 
 
 ## Usage
+### Obtain CLIP Checkpoints
+We use CLIP's ViT-B-32 model for the implementation of our method. Obtain the state_dict 
+of the model from [GoogleDrive](https://drive.google.com/file/d/1ilxBhjb3JXNDar8lKRQ9GA4hTmjxADfu/view?usp=sharing) and 
+put it under `checkpoints`. Otherwise, `pip install git+https://github.com/openai/CLIP.git` and
+run 
+```python
+import clip
+import torch
+model, _ = clip.load("ViT-B/32")
+torch.save(model.state_dict(), 'checkpoints/clip_vitb32.pth')
+```
+
+### Training and Testing
 
 The training and testing on [OV-COCO](configs/baron/ov_coco/README.md) are supported now.
 
