@@ -11,7 +11,7 @@ class_weight = [1, 1, 1, 1, 0, 0, 1, 1, 1, 0,
                 0, 0, 1, 0, 1, 1, 1, 1, 1, 1,
                 1, 1, 0, 1, 1, 0, 1, 0, 0, 1,
                 0, 1, 1, 1, 1, 1, 0, 0, 1, 1,
-                1, 0, 1, 1, 1, 1, 0, 0, 0, 1] + [1]
+                1, 0, 1, 1, 1, 1, 0, 0, 0, 1] + [0.7]
 
 reg_layer = [
     dict(type='Linear', in_features=1024, out_features=1024),
@@ -120,6 +120,9 @@ model = dict(
                 class_weight=class_weight),
         ),
     ),
+    test_cfg=dict(
+        rcnn=dict(score_thr=0.01)
+    )
 )
 
 # optimizer
