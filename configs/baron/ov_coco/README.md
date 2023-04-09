@@ -46,7 +46,7 @@ The json file for caption supervision is obtained following
 
 ## Testing
 ### Open Vocabulary COCO
-The implementation based on MMDet3.x achieves better result compared to the results reported in the paper.
+The implementation based on MMDet3.x achieves better results compared to the results reported in the paper.
 
 |             | Backbone |  Method  | Supervision  | Novel AP50 |                                        Config                                        |         Download          |
 |:-----------:|:--------:|:--------:|:------------:|:----------:|:------------------------------------------------------------------------------------:|:-------------------------:|
