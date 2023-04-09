@@ -40,9 +40,9 @@ python tools/pre_processors/keep_coco_novel.py \
       --json_path data/coco/annotations/instances_val2017.json \
       --out_path data/coco/wusize/instances_val2017_novel.json
 ```
-The json file for caption supervision is obtained following 
-[Detic](https://github.com/facebookresearch/Detic/blob/main/datasets/README.md#:~:text=Next%2C%20we%20preprocess%20the%20COCO%20caption%20data%3A).
-
+The json file for caption supervision `captions_train2017_tags_allcaps.json` is obtained following 
+[Detic](https://github.com/facebookresearch/Detic/blob/main/datasets/README.md#:~:text=Next%2C%20we%20preprocess%20the%20COCO%20caption%20data%3A). Put it under 
+`data/coco/wusize`.
 
 ## Testing
 ### Open Vocabulary COCO
