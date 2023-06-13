@@ -44,6 +44,17 @@ The json file for caption supervision `captions_train2017_tags_allcaps.json` is 
 [Detic](https://github.com/facebookresearch/Detic/blob/main/datasets/README.md#:~:text=Next%2C%20we%20preprocess%20the%20COCO%20caption%20data%3A). Put it under 
 `data/coco/wusize`.
 
+
+### Class Embeddings
+As the training on COCO is easy to converge to base categories, we use the output of the last attention
+layer for classification. Generate the class embeddings by 
+```bash
+python tools/hand_craft_prompt.py --model_version ViT-B/32 --ann data/coco/annotations/instances_val2017.json \
+--out_path data/metadata/coco_clip_hand_craft.npy --dataset coco
+```
+The generated file `data/metadata/coco_clip_hand_craft_attn12.npy` is used for training and testing.
+
+
 ## Testing
 ### Open Vocabulary COCO
 The implementation based on MMDet3.x achieves better results compared to the results reported in the paper.
