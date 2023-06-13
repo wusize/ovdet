@@ -46,7 +46,7 @@ The json file for caption supervision `captions_train2017_tags_allcaps.json` is 
 
 
 ### Class Embeddings
-As the training on COCO is easy to converge to base categories, we use the output of the last attention
+As the training on COCO tends to converge to base categories, we use the output of the last attention
 layer for classification. Generate the class embeddings by 
 ```bash
 python tools/hand_craft_prompt.py --model_version ViT-B/32 --ann data/coco/annotations/instances_val2017.json \
