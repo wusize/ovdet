@@ -4,7 +4,10 @@ import os.path as osp
 
 
 @DATASETS.register_module()
-class CocoCaptionDataset(CocoDataset):
+class CocoCaptionOVDDataset(CocoDataset):
+    """
+        Renamed from `CocoCaptionDataset' to avoid conflicts with the mmdet
+    """
 
     def prepare_data(self, idx):
         """Get data processed by ``self.pipeline``.

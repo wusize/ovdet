@@ -40,7 +40,7 @@ det_dataset = dict(
     pipeline=det_pipeline)
 
 ovd_dataset = dict(
-    type='CocoCaptionDataset',
+    type='CocoCaptionOVDDataset',
     data_root=data_root,
     ann_file='wusize/captions_train2017_tags_allcaps.json',
     data_prefix=dict(img='train2017/'),

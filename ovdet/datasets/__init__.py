@@ -1,2 +1,2 @@
-from .coco_caption import CocoCaptionDataset
+from .coco_caption import CocoCaptionOVDDataset
 from .samplers.multi_source_sampler import CustomGroupMultiSourceSampler
