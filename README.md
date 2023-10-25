@@ -32,7 +32,7 @@ mim install mmdet>=3.0.0rc6
 
 ## License
 
-This project is released under the [Apache 2.0 license](LICENSE).
+This project is released under the [NTU S-Lab License 1.0](LICENSE).
 
 
 
